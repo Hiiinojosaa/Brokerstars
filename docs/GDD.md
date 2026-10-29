@@ -40,6 +40,10 @@ El lado oscuro tiene un sistema de **riesgo**: investigaciones, redadas, cárcel
 - [ ] **Fase 4:** primer negocio completo (trading) y tienda de lujo
 - [ ] **Fase 5:** resto de negocios y el lado oscuro
 
+## Lugares
+- Oficina principal (Planta 1, call center) en 3D: `docs/diseno/hoja-oficina.png` · se ve en `office.html`
+- Planos de todos los sitios de trabajo: `docs/diseno/planos-lugares.png`
+
 ## Pendiente del personaje (para más adelante)
 Diseño actual: `docs/diseno/hoja-operador.png`.
 - Camisa del pecho más pequeña (ahora parece un babero)

@@ -8,7 +8,10 @@ import { billTexture, denimTexture, fabricTexture, faceTexture, jacketTexture, s
 // estrechan y sombreado suave. El origen está en los pies y mira hacia +Z.
 // Brazos y piernas cuelgan de pivotes para poder animarlos.
 
-export type Pose = 'quieto' | 'presentacion' | 'pose' | 'brazos_cruzados' | 'billetes';
+export type Pose = 'quieto' | 'presentacion' | 'pose' | 'brazos_cruzados' | 'billetes' | 'sentado';
+
+// Altura del asiento de una silla de oficina, para la pose 'sentado'.
+export const SEAT_HEIGHT = 0.5;
 
 const BUILD_SCALE = { flaco: 0.9, normal: 1, grande: 1.18 };
 const SEG = 20;
@@ -244,7 +247,10 @@ interface Limb {
 
 export class Character {
   readonly root = new THREE.Group();
+  // todo el cuerpo cuelga de aquí; al sentarse baja hasta el asiento
+  private body = new THREE.Group();
   private upper = new THREE.Group();
+  private legs: Limb[] = [];
   private head = new THREE.Group();
   private arms: { left: Limb; right: Limb } | null = null;
   private cash = new THREE.Group();
@@ -268,13 +274,16 @@ export class Character {
       }
     });
     this.root.clear();
+    this.body = new THREE.Group();
+    this.root.add(this.body);
     this.upper = new THREE.Group();
+    this.legs = [];
   }
 
   private build() {
     this.clear();
     const k = BUILD_SCALE[this.config.build];
-    this.root.add(this.upper);
+    this.body.add(this.upper);
     this.buildLegs(k);
     const torso = this.buildTorso(k);
     this.buildHead();
@@ -295,18 +304,19 @@ export class Character {
     const shin = 0.42;
     const ground = -(hipY - thigh); // el suelo visto desde la rodilla
 
-    this.root.add(at(ball(0.19 * k, pants, 1, 0.6, 0.72), 0, hipY + 0.02, 0)); // cadera
+    this.body.add(at(ball(0.19 * k, pants, 1, 0.6, 0.72), 0, hipY + 0.02, 0)); // cadera
     if (dress && c.top !== 'traje') {
       const belt = limb(0.183 * k, 0.183 * k, 0.035, mat('#18181a', 0.4));
       belt.scale.z = 0.72;
-      this.root.add(at(belt, 0, hipY + 0.06, 0));
-      this.root.add(at(rbox(0.04, 0.03, 0.01, metal('#c9c9c9'), 0.004), 0, hipY + 0.06, 0.183 * k * 0.72));
+      this.body.add(at(belt, 0, hipY + 0.06, 0));
+      this.body.add(at(rbox(0.04, 0.03, 0.01, metal('#c9c9c9'), 0.004), 0, hipY + 0.06, 0.183 * k * 0.72));
     }
     for (const side of [-1, 1]) {
       const hip = at(new THREE.Group(), side * 0.1 * k, hipY, 0);
       const knee = at(new THREE.Group(), 0, -thigh, 0);
       hip.add(knee);
-      this.root.add(hip);
+      this.body.add(hip);
+      this.legs.push({ root: hip, joint: knee, hand: knee });
 
       switch (c.pants) {
         case 'vestir':
@@ -670,8 +680,28 @@ export class Character {
       a.joint.rotation.set(0, 0, 0);
       a.hand.rotation.set(0, 0, 0);
     }
+    for (const leg of this.legs) {
+      leg.root.rotation.set(0, 0, 0);
+      leg.joint.rotation.set(0, 0, 0);
+    }
+    this.body.position.y = 0;
     this.cash.visible = this.pose === 'billetes';
     switch (this.pose) {
+      case 'sentado': {
+        // sentado en la silla con las manos en el teclado
+        const hipY = 0.92;
+        this.body.position.y = SEAT_HEIGHT - hipY + 0.06;
+        for (const leg of this.legs) {
+          leg.root.rotation.x = -1.5;
+          leg.joint.rotation.x = 1.5;
+        }
+        for (const [a, s] of [[left, -1], [right, 1]] as const) {
+          a.root.rotation.set(-0.35, -s * 0.15, 0);
+          a.joint.rotation.set(-1.25, -s * 0.35, 0);
+          a.hand.rotation.set(0.2, s * 1.3, 0);
+        }
+        break;
+      }
       case 'billetes':
         // las dos manos delante de la cara sujetando el abanico
         for (const [a, s] of [[left, -1], [right, 1]] as const) {
