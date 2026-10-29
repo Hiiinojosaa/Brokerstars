@@ -10,6 +10,7 @@ import { createLobby } from '../scene/lobby';
 import { createOffice } from '../scene/office';
 import { loadSaved } from '../ui/creator';
 import { sportsbook } from './casino';
+import { bankApp, messagesApp, settingsApp, walletApp } from './apps';
 import { storeApp, storeTick } from './dropship';
 import { Hud, button, el, euros } from './hud';
 import { Input } from './input';
@@ -112,23 +113,10 @@ player.place(0, 4.4, Math.PI);
 
 // --- móvil: apps de los negocios ---
 phone.addApp(storeApp(game));
-phone.addApp({
-  id: 'trading', name: 'Trading', icon: '📈', color: '#16a085',
-  render: (body) => {
-    body.append(el('div', 'section', 'Mercado'));
-    for (const a of market.assets) body.append(el('div', 'mov', ''));
-    [...body.querySelectorAll('.mov')].forEach((row, i) => {
-      const a = market.assets[i];
-      row.innerHTML = `<span>${a.symbol}</span><span>${a.price >= 100 ? a.price.toFixed(0) : a.price.toFixed(4)} €</span>`;
-    });
-    body.append(el('div', 'section', 'Tus posiciones'));
-    if (!state.data.positions.length) body.append(el('p', 'muted', 'Sin posiciones. Opera en las mesas de trading de la Planta 1.'));
-    for (const p of state.data.positions) {
-      const pnl = market.pnl(p);
-      body.append(el('div', 'msg', `${p.side === 'long' ? '📈' : '📉'} ${p.symbol} x${p.leverage} · ${euros(p.stake)} · ${pnl >= 0 ? '+' : ''}${euros(pnl)}`));
-    }
-  },
-});
+phone.addApp(messagesApp(phone, game));
+phone.addApp(bankApp(game));
+phone.addApp(walletApp(game, market));
+phone.addApp(settingsApp(game));
 market.newsListener((text) => {
   if (state.data.positions.length || floor?.level === 1) phone.notify('📰 Noticias del mercado', text);
 });

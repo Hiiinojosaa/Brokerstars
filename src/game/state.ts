@@ -187,6 +187,10 @@ interface SaveData {
   victims: number;
   owned: string[];
   pin: string;
+  // monedas en la Wallet (cantidad de cada una); `crypto` es el saldo en USDT
+  wallet: Record<string, number>;
+  cardBlocked: boolean;
+  phoneModel: string;
   // stock de cada producto del súper; se repone cada día
   stock: Record<string, number>;
   stockDay: number;
@@ -207,6 +211,7 @@ function fresh(): SaveData {
     sales: 0, pendingCommission: 0, calledLeads: [], positions: [], tradingPnl: 0, store: [], storeName: '', heat: 0,
     mules: [], deliveries: [], victims: 0, owned: [],
     pin: String(1000 + Math.floor(Math.random() * 9000)), stock: {}, stockDay: 0,
+    wallet: {}, cardBlocked: false, phoneModel: 'iPhone 18 Pro',
   };
 }
 
@@ -310,7 +315,7 @@ export class GameState {
   }
 
   get hasCard() {
-    return (this.data.inventory.tarjeta ?? 0) > 0;
+    return (this.data.inventory.tarjeta ?? 0) > 0 && !this.data.cardBlocked;
   }
 
   // cajero: sacar efectivo
@@ -366,7 +371,7 @@ export class GameState {
   }
 
   payCard(amount: number, concept: string) {
-    if (!this.data.hasAccount || this.data.bank < amount) return false;
+    if (!this.data.hasAccount || this.data.cardBlocked || this.data.bank < amount) return false;
     this.data.bank = round(this.data.bank - amount);
     this.move(concept, -amount);
     this.changed();

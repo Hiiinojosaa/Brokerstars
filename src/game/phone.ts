@@ -1,23 +1,30 @@
-import { BANK_NAME } from './config';
-import { button, el, euros } from './hud';
+import { el } from './hud';
 import type { GameState, Message } from './state';
 
-// El móvil del jugador: se abre con M (o el botón 📱). Las apps de cada
-// negocio se registran desde fuera con `addApp`.
+// El móvil del jugador, estilo iPhone: pantalla de inicio con widgets, dock,
+// apps a pantalla completa y notificaciones que caen desde la Dynamic
+// Island. Se abre con M (o el botón 📱). Las apps se registran con `addApp`.
 
 export interface PhoneApp {
   id: string;
   name: string;
   icon: string;
+  // fondo del icono (cualquier valor de `background` de CSS)
   color: string;
   badge?: () => number;
+  // si va en el dock de abajo
+  dock?: boolean;
+  // tema de la app: oscuro (por defecto) o claro
+  light?: boolean;
   render(body: HTMLElement, phone: Phone): void;
 }
 
 export class Phone {
   private root = el('div', 'phone');
   private screen = el('div', 'phone-screen');
+  private island = el('div', 'phone-island');
   private notif = el('div', 'phone-notif');
+  private statusTime = el('span', 'st-time');
   private toggleBtn = el('button', 'phone-toggle', '📱');
   private apps: PhoneApp[] = [];
   private current: PhoneApp | null = null;
@@ -26,49 +33,25 @@ export class Phone {
   constructor(ui: HTMLElement, private state: GameState) {
     const frame = el('div', 'phone-frame');
     const status = el('div', 'phone-status');
-    frame.append(status, this.screen);
+    status.append(this.statusTime, el('span', 'st-icons', '▂▄▆ 5G ▰▰▰▱'));
+    const home = el('button', 'phone-homebar');
+    home.onclick = () => this.home();
+    frame.append(this.screen, status, this.island, home);
     this.root.append(frame);
     ui.append(this.root, this.notif, this.toggleBtn);
     this.toggleBtn.onclick = () => this.toggle();
     const updateStatus = () => {
-      status.textContent = `Día ${state.day} · ${state.clock()}`;
+      this.statusTime.textContent = state.clock();
       const n = state.unread;
       this.toggleBtn.dataset.badge = n ? String(n) : '';
     };
     state.onChange(updateStatus);
     updateStatus();
     state.onMessage((m) => this.notify(m.from, m.text));
-
-    this.addApp({
-      id: 'mensajes', name: 'Mensajes', icon: '💬', color: '#2ecc71',
-      badge: () => state.unread,
-      render: (body) => this.renderMessages(body),
-    });
-    this.addApp({
-      id: 'banco', name: BANK_NAME, icon: '🏦', color: '#1f5fae',
-      render: (body) => this.renderBank(body),
-    });
-    this.addApp({
-      id: 'ajustes', name: 'Ajustes', icon: '⚙️', color: '#7f8c8d',
-      render: (body) => {
-        body.append(el('p', 'muted', 'Brokerstars · demo 0.2'));
-        const reset = button('Empezar partida nueva', () => {
-          reset.textContent = 'Pulsa otra vez para confirmar';
-          reset.onclick = () => {
-            state.reset();
-            location.reload();
-          };
-        }, 'btn ghost');
-        body.append(reset);
-      },
-    });
   }
 
   addApp(app: PhoneApp) {
-    // las apps del sistema van al final
-    const i = this.apps.findIndex((a) => a.id === 'ajustes');
-    if (i >= 0) this.apps.splice(i, 0, app);
-    else this.apps.push(app);
+    this.apps.push(app);
   }
 
   toggle(force?: boolean) {
@@ -95,31 +78,42 @@ export class Phone {
     if (this.open && this.current) this.render();
   }
 
+  private icon(app: PhoneApp) {
+    const b = el('button', 'phone-app');
+    const icon = el('span', 'phone-icon', app.icon);
+    icon.style.background = app.color;
+    const n = app.badge?.() ?? 0;
+    if (n) icon.dataset.badge = String(n);
+    b.append(icon, el('span', 'phone-app-name', app.name));
+    b.onclick = () => this.openApp(app.id);
+    return b;
+  }
+
   private render() {
     this.screen.innerHTML = '';
+    this.screen.className = 'phone-screen';
     if (!this.current) {
-      const grid = el('div', 'phone-grid');
-      for (const app of this.apps) {
-        const b = el('button', 'phone-app');
-        const icon = el('span', 'phone-icon', app.icon);
-        icon.style.background = app.color;
-        const n = app.badge?.() ?? 0;
-        if (n) icon.dataset.badge = String(n);
-        b.append(icon, el('span', '', app.name));
-        b.onclick = () => this.openApp(app.id);
-        grid.append(b);
-      }
+      this.screen.classList.add('home');
+      // widgets: reloj grande y objetivo
+      const clock = el('div', 'widget-clock');
+      clock.append(el('div', 'wc-date', `Día ${this.state.day}`), el('div', 'wc-time', this.state.clock()));
+      this.screen.append(clock);
       const obj = this.state.currentObjective();
-      if (obj) {
-        const card = el('div', 'phone-card');
-        card.append(el('div', 'muted', 'Objetivo'), el('div', '', obj.text));
-        this.screen.append(card);
-      }
-      this.screen.append(grid);
+      const widget = el('div', 'widget');
+      widget.append(el('div', 'widget-title', obj ? '🎯 Objetivo' : '😎 Libre'), el('div', '', obj ? obj.text : 'Haz dinero y gástatelo.'));
+      this.screen.append(widget);
+      const grid = el('div', 'phone-grid');
+      for (const app of this.apps.filter((a) => !a.dock)) grid.append(this.icon(app));
+      const dock = el('div', 'phone-dock');
+      for (const app of this.apps.filter((a) => a.dock)) dock.append(this.icon(app));
+      this.screen.append(grid, dock);
       return;
     }
+    if (this.current.light) this.screen.classList.add('light');
     const head = el('div', 'phone-head');
-    head.append(button('‹', () => this.home(), 'phone-back'), el('strong', '', this.current.name));
+    const back = el('button', 'phone-back', '‹');
+    back.onclick = () => this.home();
+    head.append(back, el('strong', '', this.current.name));
     const body = el('div', 'phone-body');
     this.screen.append(head, body);
     this.current.render(body, this);
@@ -127,52 +121,37 @@ export class Phone {
 
   notify(from: string, text: string) {
     this.notif.innerHTML = '';
-    this.notif.append(el('strong', '', from), el('div', '', text.length > 110 ? text.slice(0, 110) + '…' : text));
+    const head = el('div', 'pn-head');
+    head.append(el('strong', '', from), el('span', 'muted', 'ahora'));
+    this.notif.append(head, el('div', '', text.length > 120 ? text.slice(0, 120) + '…' : text));
     this.notif.classList.add('show');
+    this.island.classList.add('wide');
     clearTimeout((this.notif as any)._t);
-    (this.notif as any)._t = setTimeout(() => this.notif.classList.remove('show'), 4500);
+    (this.notif as any)._t = setTimeout(() => {
+      this.notif.classList.remove('show');
+      this.island.classList.remove('wide');
+    }, 4500);
     this.notif.onclick = () => this.openApp('mensajes');
     this.toggleBtn.classList.add('ring');
     setTimeout(() => this.toggleBtn.classList.remove('ring'), 900);
   }
 
-  private renderMessages(body: HTMLElement) {
+  renderMessages(body: HTMLElement) {
     const msgs = this.state.data.messages;
     if (!msgs.length) body.append(el('p', 'muted', 'Sin mensajes'));
-    for (const m of msgs as Message[]) {
-      const row = el('div', 'msg' + (m.read ? '' : ' unread'));
-      row.append(el('div', 'msg-from', `${m.from} · ${this.state.clock(m.t)}`), el('div', '', m.text));
-      body.append(row);
-      m.read = true;
+    // agrupados por remitente, como una lista de chats
+    const byFrom = new Map<string, Message[]>();
+    for (const m of msgs as Message[]) byFrom.set(m.from, [...(byFrom.get(m.from) ?? []), m]);
+    for (const [from, list] of byFrom) {
+      const chat = el('div', 'chat-thread');
+      const unread = list.filter((m) => !m.read).length;
+      chat.append(el('div', 'chat-from', `${from}${unread ? ` · ${unread} nuevo${unread > 1 ? 's' : ''}` : ''}`));
+      for (const m of list.slice(0, 6).reverse()) {
+        chat.append(el('div', 'imsg', m.text), el('div', 'imsg-time', this.state.clock(m.t)));
+        m.read = true;
+      }
+      body.append(chat);
     }
     this.state.persist();
-  }
-
-  private renderBank(body: HTMLElement) {
-    const d = this.state.data;
-    if (!d.hasAccount) {
-      body.append(el('p', 'muted', `Aún no tienes cuenta. Ve a la oficina de ${BANK_NAME} en la Planta 0.`));
-      return;
-    }
-    const card = el('div', 'bank-card');
-    card.append(el('div', 'muted', 'Saldo disponible'), el('div', 'big', euros(d.bank)), el('div', 'mono', d.account));
-    body.append(card);
-    const pockets = el('div', 'row');
-    pockets.append(el('div', 'pill', `Efectivo ${euros(d.cash)}`), el('div', 'pill', `Cripto ${euros(d.crypto)}`));
-    body.append(pockets);
-    if (d.loans.length) {
-      body.append(el('div', 'section', 'Préstamos'));
-      for (const l of d.loans) {
-        const late = d.time > l.dueAt;
-        body.append(el('div', 'msg' + (late ? ' danger' : ''), `${l.label} ${l.id} · debes ${euros(l.owed)} · vence día ${Math.floor(l.dueAt / 1440) + 1} ${this.state.clock(l.dueAt)}${late ? ' · VENCIDO' : ''}`));
-      }
-    }
-    body.append(el('div', 'section', 'Movimientos'));
-    if (!d.movements.length) body.append(el('p', 'muted', 'Sin movimientos'));
-    for (const mv of d.movements.slice(0, 30)) {
-      const row = el('div', 'mov');
-      row.append(el('span', '', mv.concept), el('span', mv.amount < 0 ? 'neg' : 'pos', (mv.amount > 0 ? '+' : '') + euros(mv.amount)));
-      body.append(row);
-    }
   }
 }

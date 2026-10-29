@@ -144,7 +144,7 @@ export function dropshipPc(game: Game, onClose: () => void) {
 
 export function storeApp(game: Game) {
   return {
-    id: 'tienda', name: 'Mi tienda', icon: '🛍️', color: '#8e44ad',
+    id: 'tienda', name: 'Mi tienda', icon: '🛍️', color: 'linear-gradient(135deg,#c86dd7,#3023ae)',
     render: (body: HTMLElement) => {
       const { state } = game;
       if (!state.data.storeName) {
