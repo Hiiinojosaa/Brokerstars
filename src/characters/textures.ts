@@ -6,19 +6,57 @@ import type { Face, FacialHair, Print } from './types';
 
 const cache = new Map<string, THREE.CanvasTexture>();
 
-function makeTexture(key: string, size: number, draw: (ctx: CanvasRenderingContext2D, s: number) => void) {
+function makeTexture(
+  key: string,
+  size: number,
+  draw: (ctx: CanvasRenderingContext2D, s: number, h: number) => void,
+  height = size,
+) {
   const hit = cache.get(key);
   if (hit) return hit;
   const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
+  canvas.width = size;
+  canvas.height = height;
   const ctx = canvas.getContext('2d')!;
-  draw(ctx, size);
+  draw(ctx, size, height);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
+  // filtro "nearest": píxeles nítidos, como en PS2
   tex.magFilter = THREE.NearestFilter;
-  tex.minFilter = THREE.LinearMipMapLinearFilter;
+  tex.minFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
   cache.set(key, tex);
   return tex;
+}
+
+// Números pseudoaleatorios con semilla, para que las texturas salgan
+// siempre iguales.
+function rng(seed: number) {
+  return () => {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function rgba(hex: string, k: number, a = 1) {
+  const c = new THREE.Color(hex);
+  const f = (v: number) => Math.round(Math.min(1, Math.max(0, v * k)) * 255);
+  // la textura se guarda en sRGB, así que convertimos de vuelta
+  c.convertLinearToSRGB();
+  return `rgba(${f(c.r)},${f(c.g)},${f(c.b)},${a})`;
+}
+
+// Ruido de grano fino por encima de todo el lienzo.
+function grain(ctx: CanvasRenderingContext2D, w: number, h: number, amount: number, seed: number) {
+  const r = rng(seed);
+  for (let i = 0; i < w * h * 0.35; i++) {
+    const v = r() < 0.5 ? 0 : 255;
+    ctx.fillStyle = `rgba(${v},${v},${v},${amount * r()})`;
+    ctx.fillRect(Math.floor(r() * w), Math.floor(r() * h), 1, 1);
+  }
 }
 
 // Mano de Fátima rellena con el ojo calado, centrada en (cx, cy) y de alto h.
@@ -311,37 +349,188 @@ export function printTexture(print: Exclude<Print, 'ninguno'>, ink: string) {
   });
 }
 
-// Base de tela vaquera en gris que se multiplica por el color del pantalón.
-// Con `ripped` añade rotos con hilos blancos.
-export function denimTexture(ripped: boolean) {
-  const tex = makeTexture('denim:' + ripped, 128, (ctx, s) => {
-    ctx.fillStyle = '#d2d2d2';
-    ctx.fillRect(0, 0, s, s);
-    for (let i = 0; i < 900; i++) {
-      const v = 180 + ((i * 37) % 60);
-      ctx.fillStyle = `rgb(${v},${v},${v})`;
-      ctx.fillRect((i * 53) % s, (i * 29) % s, 2, 1);
+// Vaquero pintado: lavado más claro en el centro de la pernera, costuras
+// laterales, bigotes arriba y pliegues amontonados abajo. En un cilindro
+// u=0 es la parte de delante y v=1 la de arriba (arriba del lienzo).
+export function denimTexture(color: string, ripped: boolean, skin: string) {
+  return makeTexture(`denim:${color}:${ripped}:${skin}`, 64, (ctx, w, h) => {
+    const r = rng(7);
+    ctx.fillStyle = rgba(color, 1);
+    ctx.fillRect(0, 0, w, h);
+    // hilos verticales
+    for (let x = 0; x < w; x++) {
+      ctx.fillStyle = rgba(color, 0.85 + r() * 0.3, 0.35);
+      ctx.fillRect(x, 0, 1, h);
     }
-    // desgaste más claro en el centro de cada pernera
-    const g = ctx.createLinearGradient(0, 0, s, 0);
-    g.addColorStop(0.15, 'rgba(255,255,255,0)');
-    g.addColorStop(0.25, 'rgba(255,255,255,0.35)');
-    g.addColorStop(0.35, 'rgba(255,255,255,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, s, s);
+    // lavado claro delante (bordes del lienzo) y detrás más suave
+    for (const [cx, k] of [[0, 1.55], [w, 1.55], [w / 2, 1.25]] as const) {
+      const g = ctx.createRadialGradient(cx, h * 0.45, 2, cx, h * 0.45, w * 0.32);
+      g.addColorStop(0, rgba(color, k, 0.85));
+      g.addColorStop(1, rgba(color, k, 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+    }
+    // costuras laterales
+    for (const x of [w * 0.25, w * 0.75]) {
+      ctx.fillStyle = rgba(color, 0.55);
+      ctx.fillRect(x - 1, 0, 2, h);
+      ctx.fillStyle = 'rgba(214,170,90,0.6)';
+      for (let y = 0; y < h; y += 3) ctx.fillRect(x + 1, y, 1, 1);
+    }
+    // bigotes en la parte de arriba delante
+    for (let i = 0; i < 6; i++) {
+      const y = 6 + i * 4;
+      ctx.fillStyle = rgba(color, 1.7, 0.7);
+      ctx.fillRect(0, y, 9 - i, 1);
+      ctx.fillRect(w - 9 + i, y, 9 - i, 1);
+    }
+    // pliegues ondulados en la parte de abajo: sombra con un brillo encima
+    let y = h * 0.62;
+    while (y < h - 3) {
+      const x0 = Math.floor(r() * w);
+      const len = w * (0.35 + r() * 0.4);
+      const amp = 1 + r() * 2;
+      for (let x = 0; x < len; x++) {
+        const px = (x0 + x) % w;
+        const py = Math.floor(y + Math.sin((x / len) * Math.PI * 2) * amp);
+        ctx.fillStyle = rgba(color, 0.55, 0.75);
+        ctx.fillRect(px, py, 1, 2);
+        ctx.fillStyle = rgba(color, 1.45, 0.5);
+        ctx.fillRect(px, py - 1, 1, 1);
+      }
+      y += 6 + r() * 6;
+    }
     if (ripped) {
-      for (const [x, y, w] of [[24, 30, 18], [30, 80, 14], [96, 50, 12]]) {
-        ctx.fillStyle = '#5c5c5c';
-        ctx.fillRect(x - 1, y - 1, w + 2, 10);
-        for (let t = 0; t < 4; t++) {
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(x, y + t * 2.4, w, 1.3);
-        }
+      for (const [x, ry, rw] of [[2, 30, 10], [54, 34, 9], [30, 60, 11], [6, 86, 8]]) {
+        ctx.fillStyle = skin;
+        ctx.fillRect(x, ry, rw, 7);
+        ctx.fillStyle = '#eeeeee';
+        for (let t = 0; t < 3; t++) ctx.fillRect(x - 1, ry + 1 + t * 2, rw + 2, 1);
       }
     }
+    grain(ctx, w, h, 0.08, 3);
+  }, 128);
+}
+
+// Camiseta / sudadera pintada: arrugas, dobladillo, cuello y el
+// estampado en el centro de la parte delantera (u = 0.5).
+export function shirtTexture(color: string, print: Print, printV: number, printW: number, printH: number) {
+  return makeTexture(`shirt:${color}:${print}:${printV}:${printW}:${printH}`, 256, (ctx, w, h) => {
+    const r = rng(11);
+    ctx.fillStyle = rgba(color, 1);
+    ctx.fillRect(0, 0, w, h);
+    // arrugas: trazos diagonales con sombra y brillo
+    for (let i = 0; i < 26; i++) {
+      const x = r() * w;
+      const y = h * 0.25 + r() * h * 0.75;
+      const len = 10 + r() * 26;
+      const dir = r() < 0.5 ? -1 : 1;
+      ctx.strokeStyle = rgba(color, 0.7, 0.55);
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + dir * len, y + len * 0.5);
+      ctx.stroke();
+      ctx.strokeStyle = rgba(color, 1.25, 0.4);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x + 1, y - 1);
+      ctx.lineTo(x + 1 + dir * len, y - 1 + len * 0.5);
+      ctx.stroke();
+    }
+    // sombra debajo del pecho y en los costados
+    const g = ctx.createLinearGradient(0, 0, w, 0);
+    g.addColorStop(0, 'rgba(0,0,0,0.12)');
+    g.addColorStop(0.25, 'rgba(0,0,0,0)');
+    g.addColorStop(0.5, 'rgba(255,255,255,0.05)');
+    g.addColorStop(0.75, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,0.12)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    // dobladillo
+    ctx.fillStyle = rgba(color, 0.65);
+    ctx.fillRect(0, h - 5, w, 1);
+    if (print !== 'ninguno') {
+      const img = printTexture(print, inkFor(color)).image as HTMLCanvasElement;
+      const pw = printW * w;
+      const ph = printH * h;
+      ctx.drawImage(img, w / 2 - pw / 2, (1 - printV) * h - ph / 2, pw, ph);
+    }
+    grain(ctx, w, h, 0.05, 5);
   });
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  return tex;
+}
+
+// Zapatilla gorda: un lienzo por cara de la caja.
+export function shoeTextures(color: string) {
+  const side = makeTexture(`shoe-side:${color}`, 64, (ctx, w, h) => {
+    ctx.fillStyle = rgba(color, 1);
+    ctx.fillRect(0, 0, w, h);
+    // paneles
+    ctx.fillStyle = rgba(color, 0.82);
+    ctx.fillRect(0, h * 0.15, w * 0.3, h * 0.5);
+    ctx.fillRect(w * 0.72, h * 0.1, w * 0.28, h * 0.55);
+    ctx.fillStyle = rgba(color, 0.6);
+    for (let x = 4; x < w; x += 4) ctx.fillRect(x, h * 0.66, 2, 1); // pespunte
+    // logo genérico
+    ctx.fillStyle = inkFor(color) === '#141414' ? 'rgba(20,20,20,0.85)' : 'rgba(240,240,240,0.9)';
+    ctx.beginPath();
+    ctx.moveTo(w * 0.22, h * 0.55);
+    ctx.quadraticCurveTo(w * 0.5, h * 0.62, w * 0.82, h * 0.25);
+    ctx.quadraticCurveTo(w * 0.5, h * 0.5, w * 0.22, h * 0.55);
+    ctx.fill();
+    // suela
+    ctx.fillStyle = '#f1f1ee';
+    ctx.fillRect(0, h * 0.7, w, h * 0.3);
+    ctx.fillStyle = '#b9b9b4';
+    ctx.fillRect(0, h * 0.7, w, 1);
+    ctx.fillRect(0, h - 3, w, 3);
+    for (let x = 2; x < w; x += 6) ctx.fillRect(x, h * 0.82, 3, 1);
+    grain(ctx, w, h, 0.15, 9);
+  }, 32);
+  const top = makeTexture(`shoe-top:${color}`, 32, (ctx, w, h) => {
+    ctx.fillStyle = rgba(color, 1);
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = rgba(color, 0.7);
+    ctx.fillRect(w * 0.3, h * 0.05, w * 0.4, h * 0.6);
+    ctx.fillStyle = '#f4f4f0';
+    for (let y = 3; y < h * 0.6; y += 4) ctx.fillRect(w * 0.32, y, w * 0.36, 2); // cordones
+    ctx.fillStyle = rgba(color, 0.85);
+    ctx.fillRect(0, h * 0.75, w, h * 0.25); // puntera
+    grain(ctx, w, h, 0.15, 13);
+  }, 64);
+  const sole = makeTexture(`shoe-sole`, 16, (ctx, w, h) => {
+    ctx.fillStyle = '#d8d8d2';
+    ctx.fillRect(0, 0, w, h);
+    grain(ctx, w, h, 0.3, 17);
+  });
+  return { side, top, sole };
+}
+
+// Pelo: mechones finos oscuros y claros.
+export function hairTexture(color: string) {
+  return makeTexture(`hair:${color}`, 32, (ctx, w, h) => {
+    const r = rng(21);
+    ctx.fillStyle = rgba(color, 1);
+    ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < 90; i++) {
+      ctx.fillStyle = r() < 0.5 ? rgba(color, 0.55, 0.8) : rgba(color, 1.8, 0.5);
+      ctx.fillRect(Math.floor(r() * w), Math.floor(r() * h), 1, 2 + Math.floor(r() * 4));
+    }
+  });
+}
+
+// Piel con un poco de grano, para que no quede plana.
+export function skinTexture(color: string) {
+  return makeTexture(`skin:${color}`, 32, (ctx, w, h) => {
+    ctx.fillStyle = rgba(color, 1);
+    ctx.fillRect(0, 0, w, h);
+    grain(ctx, w, h, 0.08, 23);
+  });
+}
+
+function inkFor(color: string) {
+  const c = new THREE.Color(color);
+  return c.r * 0.3 + c.g * 0.59 + c.b * 0.11 > 0.5 ? '#141414' : '#f4f4f0';
 }
 
 // Billete inventado para los fajos (no copia ningún billete real).

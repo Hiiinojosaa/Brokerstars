@@ -7,7 +7,7 @@ import { createCreator, loadSaved } from './ui/creator';
 const viewport = document.getElementById('viewport')!;
 const panel = document.getElementById('panel')!;
 
-const { renderer, scene, camera, controls } = createStage(viewport);
+const { renderer, scene, camera, controls, retro } = createStage(viewport);
 
 const initial = loadSaved();
 const character = new Character(initial);
@@ -24,6 +24,7 @@ createCreator(panel, initial, {
     nametag.textContent = config.name;
   },
   onPose: (pose) => (character.pose = pose),
+  onRetro: (on) => (retro.enabled = on),
 });
 
 const clock = new THREE.Clock();
@@ -31,8 +32,8 @@ renderer.setAnimationLoop(() => {
   const dt = clock.getDelta();
   character.update(dt);
   controls.update();
-  renderer.render(scene, camera);
+  retro.render(scene, camera);
 });
 
 // para pruebas desde la consola / tests automáticos
-Object.assign(window, { brokerstars: { character, camera, controls } });
+Object.assign(window, { brokerstars: { character, camera, controls, retro } });

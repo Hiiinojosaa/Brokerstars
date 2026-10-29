@@ -111,11 +111,12 @@ function randomCharacter(name: string): CharacterConfig {
 export function createCreator(
   root: HTMLElement,
   initial: CharacterConfig,
-  handlers: { onChange: (c: CharacterConfig) => void; onPose: (p: Pose) => void },
+  handlers: { onChange: (c: CharacterConfig) => void; onPose: (p: Pose) => void; onRetro: (on: boolean) => void },
 ) {
   let config = { ...initial };
   let tab = TABS[0].id;
   let pose: Pose = 'quieto';
+  let retro = true;
 
   const set = (next: CharacterConfig) => {
     config = next;
@@ -201,6 +202,15 @@ export function createCreator(
       }));
     }
     root.append(footer);
+
+    const look = el('div', 'row');
+    look.append(el('span', 'row-label', 'Imagen'));
+    look.append(chip('Filtro PS2', retro, () => {
+      retro = !retro;
+      handlers.onRetro(retro);
+      render();
+    }));
+    root.append(look);
 
     const actions = el('div', 'actions');
     const save = el('button', 'primary', 'Guardar personaje') as HTMLButtonElement;

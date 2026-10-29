@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { graffitiWallTexture, skyTexture, tileTexture } from '../characters/textures';
+import { RetroPass } from './retro';
 
 // Escenario del creador: acera, pared con grafiti y cielo de atardecer.
 
@@ -13,6 +14,7 @@ export function createStage(container: HTMLElement) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.85;
   container.appendChild(renderer.domElement);
+  const retro = new RetroPass(renderer);
 
   const scene = new THREE.Scene();
   scene.background = skyTexture();
@@ -70,11 +72,12 @@ export function createStage(container: HTMLElement) {
   const resize = () => {
     const { clientWidth: w, clientHeight: h } = container;
     renderer.setSize(w, h);
+    retro.setSize(w, h);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   };
   new ResizeObserver(resize).observe(container);
   resize();
 
-  return { renderer, scene, camera, controls };
+  return { renderer, scene, camera, controls, retro };
 }
