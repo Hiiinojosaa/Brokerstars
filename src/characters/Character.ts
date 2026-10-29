@@ -85,6 +85,44 @@ function limb(rTop: number, rBottom: number, len: number, m: THREE.Material, seg
   return shadowed(new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBottom, len, seg), m));
 }
 
+// Brazo o pierna con forma: perfil [t, radio] de arriba (t=0, en la
+// articulación) a abajo (t=1). Los extremos son cúpulas, así que al doblar
+// rodilla o codo las dos piezas se funden sin dejar hueco. El origen está
+// en la articulación de arriba y la pieza cuelga hacia -Y.
+type Muscle = [number, number][];
+const THIGH: Muscle = [[0, 0.095], [0.3, 0.092], [0.7, 0.078], [1, 0.068]];
+const SHIN: Muscle = [[0, 0.066], [0.25, 0.071], [0.62, 0.056], [1, 0.044]];
+const UPPER_ARM: Muscle = [[0, 0.062], [0.35, 0.061], [0.75, 0.052], [1, 0.047]];
+const FOREARM: Muscle = [[0, 0.05], [0.28, 0.053], [0.75, 0.041], [1, 0.035]];
+
+function muscle(profile: Muscle, len: number, m: THREE.Material, k = 1, grow = 0) {
+  const r = (t: number) => {
+    for (let i = 1; i < profile.length; i++) {
+      if (t <= profile[i][0]) {
+        const [t0, r0] = profile[i - 1];
+        const [t1, r1] = profile[i];
+        return (r0 + ((r1 - r0) * (t - t0)) / (t1 - t0)) * k + grow;
+      }
+    }
+    return profile[profile.length - 1][1] * k + grow;
+  };
+  const pts: THREE.Vector2[] = [];
+  const rTop = r(0), rBot = r(1);
+  for (let i = 0; i <= 6; i++) {
+    const a = (i / 6) * (Math.PI / 2);
+    pts.push(new THREE.Vector2(Math.sin(a) * rBot, -len - Math.cos(a) * rBot * 0.8));
+  }
+  for (let i = 1; i < 12; i++) {
+    const t = 1 - i / 12;
+    pts.push(new THREE.Vector2(r(t), -t * len));
+  }
+  for (let i = 6; i >= 0; i--) {
+    const a = (i / 6) * (Math.PI / 2);
+    pts.push(new THREE.Vector2(Math.sin(a) * rTop, Math.cos(a) * rTop * 0.8));
+  }
+  return shadowed(new THREE.Mesh(new THREE.LatheGeometry(pts, SEG), m));
+}
+
 function ball(r: number, m: THREE.Material, sx = 1, sy = 1, sz = 1) {
   const mesh = shadowed(new THREE.Mesh(new THREE.SphereGeometry(r, 24, 16), m));
   mesh.scale.set(sx, sy, sz);
@@ -320,17 +358,17 @@ export class Character {
 
       switch (c.pants) {
         case 'vestir':
-          hip.add(at(capsule(0.088 * k, thigh + 0.1, pants), 0, -thigh / 2 + 0.02, 0));
-          knee.add(at(limb(0.082 * k, 0.07 * k, shin - 0.02, pants), 0, -(shin - 0.02) / 2, 0));
+          hip.add(muscle(THIGH, thigh, pants, k, 0.006));
+          knee.add(muscle(SHIN, shin - 0.03, pants, k, 0.012));
           break;
         case 'jorts':
           hip.add(at(limb(0.1 * k, 0.115 * k, 0.5, pants), 0, -0.24, 0));
-          knee.add(at(limb(0.055 * k, 0.042 * k, shin, skin), 0, -shin / 2, 0));
+          knee.add(muscle(SHIN, shin - 0.02, skin, k * 0.85));
           knee.add(at(limb(0.052 * k, 0.05 * k, 0.15, white), 0, -shin + 0.12, 0)); // calcetín alto
           break;
         case 'pitillo':
-          hip.add(at(capsule(0.085 * k, thigh + 0.08, pants), 0, -thigh / 2, 0));
-          knee.add(at(limb(0.07 * k, 0.06 * k, shin, pants), 0, -shin / 2, 0));
+          hip.add(muscle(THIGH, thigh, pants, k * 0.95));
+          knee.add(muscle(SHIN, shin - 0.02, pants, k, 0.006));
           // pernera apilada sobre la zapatilla
           for (let i = 0; i < 3; i++) {
             const ring = new THREE.Mesh(new THREE.TorusGeometry(0.064 * k, 0.014, 8, SEG), pants);
@@ -339,12 +377,14 @@ export class Character {
           }
           break;
         case 'rectos':
-          hip.add(at(capsule(0.095 * k, thigh + 0.1, pants), 0, -thigh / 2, 0));
-          knee.add(at(limb(0.09 * k, 0.088 * k, shin, pants), 0, -shin / 2, 0));
+          hip.add(muscle(THIGH, thigh, pants, k, 0.01));
+          knee.add(at(ball(0.088 * k, pants), 0, 0, 0)); // rodilla
+          knee.add(at(limb(0.088 * k, 0.086 * k, shin, pants), 0, -shin / 2, 0));
           break;
         default:
           // vaqueros anchos que caen sobre la zapatilla
-          hip.add(at(capsule(0.108 * k, thigh + 0.1, pants), 0, -thigh / 2, 0));
+          hip.add(muscle(THIGH, thigh, pants, k, 0.022));
+          knee.add(at(ball(0.105 * k, pants), 0, 0, 0)); // rodilla
           knee.add(at(limb(0.106 * k, 0.13 * k, shin + 0.02, pants), 0, -shin / 2 - 0.005, 0.005));
       }
 
@@ -609,17 +649,16 @@ export class Character {
       // primero se dobla hacia delante y luego gira hacia el cuerpo
       root.rotation.order = joint.rotation.order = 'YXZ';
       const upperMat = longSleeve ? sleeve : skin;
-      root.add(at(capsule((suit ? 0.064 : 0.058) * k, upperLen + 0.1, upperMat), 0, -upperLen / 2, 0));
+      root.add(muscle(UPPER_ARM, upperLen, upperMat, k, suit ? 0.008 : longSleeve ? 0.004 : 0));
       root.add(at(ball((suit ? 0.07 : 0.066) * k, longSleeve ? sleeve : top, 1, 0.8, 1), -side * 0.018, -0.02, 0)); // hombro
       if (!longSleeve || c.top === 'camiseta_sobre_larga') root.add(at(limb(0.072 * k, 0.08 * k, 0.17, top), 0, -0.08, 0)); // manga corta
       const foreMat = longSleeve ? sleeve : skin;
       if (suit) {
         // manga de la chaqueta y el puño de la camisa asomando
-        joint.add(at(ball(0.058 * k, foreMat), 0, 0, 0));
-        joint.add(at(limb(0.057 * k, 0.052 * k, foreLen - 0.03, foreMat), 0, -(foreLen - 0.03) / 2, 0));
+        joint.add(muscle(FOREARM, foreLen - 0.035, foreMat, k, 0.01));
         joint.add(at(limb(0.045 * k, 0.045 * k, 0.04, mat(c.sleeveColor, 0.6)), 0, -foreLen + 0.015, 0));
       } else {
-        joint.add(at(capsule(0.05 * k, foreLen + 0.1, foreMat), 0, -foreLen / 2, 0));
+        joint.add(muscle(FOREARM, foreLen - 0.01, foreMat, k, longSleeve ? 0.004 : 0));
       }
       // mano: palma hacia el cuerpo, cuatro dedos y el pulgar hacia delante
       const hand = at(new THREE.Group(), 0, -foreLen, 0);
