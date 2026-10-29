@@ -40,6 +40,10 @@ export function createStage(container: HTMLElement) {
   sun.shadow.camera.right = sun.shadow.camera.top = 3;
   sun.shadow.bias = -0.0005;
   scene.add(sun);
+  // luz de contorno por detrás para que el personaje se despegue del fondo
+  const rim = new THREE.DirectionalLight('#9ec5ff', 1.3);
+  rim.position.set(-3, 3, -4);
+  scene.add(rim);
 
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(30, 30),

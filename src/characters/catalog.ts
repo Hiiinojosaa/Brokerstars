@@ -5,6 +5,9 @@ import type { CharacterConfig } from './types';
 
 export const OPTIONS = {
   build: { flaco: 'Flaco', normal: 'Normal', grande: 'Grande' },
+  face: { normal: 'Normal', chulo: 'Chulo', feliz: 'Feliz', serio: 'Serio', enfadado: 'Enfadado' },
+  hairStyle: { rapado: 'Rapado', degradado: 'Degradado', rizos: 'Rizos', trenzas: 'Trenzas', calvo: 'Calvo' },
+  facialHair: { nada: 'Nada', bigote: 'Bigote', perilla: 'Bigote + perilla', barba: 'Barba' },
   hat: { ninguno: 'Nada', gorra: 'Gorra plana', gorra_atras: 'Gorra hacia atrás', gorro: 'Gorro', pescador: 'Pescador' },
   glasses: { ninguna: 'Nada', oscuras: 'Gafas oscuras', sin_montura: 'Sin montura' },
   top: { camiseta: 'Camiseta oversize', manga_larga: 'Manga larga', sudadera: 'Sudadera', camiseta_sobre_larga: 'Camiseta + manga larga' },
@@ -27,6 +30,9 @@ export const DEFAULT_CHARACTER: CharacterConfig = {
   build: 'normal',
   skin: COLORS.skin[2],
   hair: COLORS.hair[0],
+  face: 'normal',
+  hairStyle: 'degradado',
+  facialHair: 'nada',
   hat: 'gorra',
   hatColor: '#1c1c1c',
   glasses: 'ninguna',
@@ -47,6 +53,8 @@ export const PRESETS: CharacterConfig[] = [
   {
     ...DEFAULT_CHARACTER,
     name: 'Ronin',
+    face: 'serio',
+    hairStyle: 'trenzas',
     hat: 'ninguno',
     top: 'manga_larga',
     topColor: '#9a9a9a',
@@ -61,6 +69,9 @@ export const PRESETS: CharacterConfig[] = [
   {
     ...DEFAULT_CHARACTER,
     name: 'Ojo',
+    face: 'chulo',
+    skin: COLORS.skin[4],
+    facialHair: 'barba',
     build: 'grande',
     hat: 'gorra',
     hatColor: '#3e4a2c',
@@ -77,6 +88,9 @@ export const PRESETS: CharacterConfig[] = [
   {
     ...DEFAULT_CHARACTER,
     name: 'GH',
+    face: 'feliz',
+    hairStyle: 'rizos',
+    skin: COLORS.skin[1],
     hat: 'ninguno',
     top: 'camiseta_sobre_larga',
     topColor: '#1c1c1c',
@@ -91,6 +105,8 @@ export const PRESETS: CharacterConfig[] = [
   {
     ...DEFAULT_CHARACTER,
     name: 'Fabio',
+    face: 'chulo',
+    facialHair: 'perilla',
     skin: COLORS.skin[2],
     hat: 'gorra',
     hatColor: '#1c1c1c',

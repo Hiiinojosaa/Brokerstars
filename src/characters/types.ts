@@ -2,6 +2,9 @@
 // mandarlo por red en el multijugador y cargarlo en cualquier escena.
 
 export type Build = 'flaco' | 'normal' | 'grande';
+export type Face = 'normal' | 'chulo' | 'feliz' | 'serio' | 'enfadado';
+export type HairStyle = 'rapado' | 'degradado' | 'rizos' | 'trenzas' | 'calvo';
+export type FacialHair = 'nada' | 'bigote' | 'perilla' | 'barba';
 export type Hat = 'ninguno' | 'gorra' | 'gorra_atras' | 'gorro' | 'pescador';
 export type Glasses = 'ninguna' | 'oscuras' | 'sin_montura';
 export type TopType = 'camiseta' | 'manga_larga' | 'sudadera' | 'camiseta_sobre_larga';
@@ -16,6 +19,9 @@ export interface CharacterConfig {
   build: Build;
   skin: string;
   hair: string;
+  face: Face;
+  hairStyle: HairStyle;
+  facialHair: FacialHair;
   hat: Hat;
   hatColor: string;
   glasses: Glasses;

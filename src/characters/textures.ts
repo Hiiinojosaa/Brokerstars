@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { Print } from './types';
+import type { Face, FacialHair, Print } from './types';
 
 // Texturas dibujadas en canvas: no necesitamos imágenes externas y
 // mantienen el look pixelado de San Andreas.
@@ -66,6 +66,144 @@ function drawHamsa(ctx: CanvasRenderingContext2D, cx: number, cy: number, h: num
   ctx.arc(0, 1.6 * u, 0.55 * u, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
+}
+
+function shade(hex: string, k: number) {
+  const c = new THREE.Color(hex).multiplyScalar(k);
+  return '#' + c.getHexString();
+}
+
+// Cara estilo Roblox: se dibuja sobre un plano en la parte delantera de la
+// cabeza. Tiene fondo transparente; los párpados usan el color de la piel.
+export function faceTexture(face: Face, facialHair: FacialHair, skin: string, hair: string) {
+  return makeTexture(`face:${face}:${facialHair}:${skin}:${hair}`, 256, (ctx, s) => {
+    ctx.clearRect(0, 0, s, s);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const eyeY = 104;
+    const ink = '#1b1210';
+
+    // ojos
+    for (const side of [-1, 1]) {
+      const x = s / 2 + side * 56;
+      ctx.fillStyle = '#fbf8f2';
+      ctx.beginPath();
+      ctx.ellipse(x, eyeY, 20, 15, 0, 0, Math.PI * 2);
+      ctx.fill();
+      const look = face === 'chulo' ? -4 : 0;
+      ctx.fillStyle = '#4a2c1c';
+      ctx.beginPath();
+      ctx.arc(x + look, eyeY + 1, 11, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = ink;
+      ctx.beginPath();
+      ctx.arc(x + look, eyeY + 1, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(x + look + 4, eyeY - 4, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // párpado: medio cerrado si va de chulo o serio
+      const lid = face === 'chulo' ? 9 : face === 'serio' || face === 'enfadado' ? 4 : 0;
+      ctx.fillStyle = skin;
+      ctx.fillRect(x - 24, eyeY - 20, 48, 6 + lid);
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.ellipse(x, eyeY + lid * 0.4, 21, 15 - lid * 0.5, 0, Math.PI * 1.08, Math.PI * 1.92);
+      ctx.stroke();
+
+      // ceja
+      ctx.strokeStyle = hair;
+      ctx.lineWidth = 9;
+      ctx.beginPath();
+      const tilt = face === 'enfadado' ? 9 : face === 'feliz' ? -4 : face === 'chulo' ? (side === 1 ? -5 : 2) : 0;
+      ctx.moveTo(x - side * 18, eyeY - 30 + tilt);
+      ctx.quadraticCurveTo(x, eyeY - 38, x + side * 22, eyeY - 33 - tilt * 0.3);
+      ctx.stroke();
+    }
+
+    // nariz
+    ctx.strokeStyle = shade(skin, 0.75);
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(s / 2 - 10, 146);
+    ctx.quadraticCurveTo(s / 2, 154, s / 2 + 10, 146);
+    ctx.stroke();
+
+    // vello facial (debajo de la boca para que la boca quede encima)
+    ctx.fillStyle = hair;
+    ctx.strokeStyle = hair;
+    if (facialHair === 'barba') {
+      ctx.globalAlpha = 0.92;
+      ctx.beginPath();
+      ctx.moveTo(10, 120);
+      ctx.lineTo(28, 120);
+      ctx.quadraticCurveTo(40, 200, s / 2, 210);
+      ctx.quadraticCurveTo(s - 40, 200, s - 28, 120);
+      ctx.lineTo(s - 10, 120);
+      ctx.quadraticCurveTo(s - 14, 246, s / 2, 252);
+      ctx.quadraticCurveTo(14, 246, 10, 120);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    if (facialHair !== 'nada') {
+      // bigote fino: más grueso en el centro y afilado en las puntas
+      ctx.beginPath();
+      ctx.moveTo(s / 2 - 30, 180);
+      ctx.quadraticCurveTo(s / 2 - 14, 166, s / 2, 168);
+      ctx.quadraticCurveTo(s / 2 + 14, 166, s / 2 + 30, 180);
+      ctx.quadraticCurveTo(s / 2 + 12, 175, s / 2, 177);
+      ctx.quadraticCurveTo(s / 2 - 12, 175, s / 2 - 30, 180);
+      ctx.fill();
+    }
+    if (facialHair === 'perilla' || facialHair === 'barba') {
+      ctx.beginPath();
+      ctx.moveTo(s / 2 - 18, 212);
+      ctx.lineTo(s / 2 + 18, 212);
+      ctx.quadraticCurveTo(s / 2 + 16, 238, s / 2, 242);
+      ctx.quadraticCurveTo(s / 2 - 16, 238, s / 2 - 18, 212);
+      ctx.fill();
+    }
+
+    // boca
+    const mouthY = 192;
+    ctx.strokeStyle = shade(skin, 0.45);
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    switch (face) {
+      case 'feliz':
+        ctx.fillStyle = '#5a1f1f';
+        ctx.moveTo(s / 2 - 30, mouthY - 6);
+        ctx.quadraticCurveTo(s / 2, mouthY + 34, s / 2 + 30, mouthY - 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(s / 2 - 22, mouthY - 5, 44, 8);
+        break;
+      case 'chulo':
+        ctx.moveTo(s / 2 - 20, mouthY + 2);
+        ctx.quadraticCurveTo(s / 2 + 6, mouthY + 6, s / 2 + 24, mouthY - 6);
+        ctx.stroke();
+        break;
+      case 'serio':
+        ctx.moveTo(s / 2 - 18, mouthY);
+        ctx.lineTo(s / 2 + 18, mouthY);
+        ctx.stroke();
+        break;
+      case 'enfadado':
+        ctx.moveTo(s / 2 - 20, mouthY + 6);
+        ctx.quadraticCurveTo(s / 2, mouthY - 6, s / 2 + 20, mouthY + 6);
+        ctx.stroke();
+        break;
+      default:
+        ctx.moveTo(s / 2 - 22, mouthY - 2);
+        ctx.quadraticCurveTo(s / 2, mouthY + 12, s / 2 + 22, mouthY - 2);
+        ctx.stroke();
+    }
+  });
 }
 
 function dripText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, size: number, color: string) {
