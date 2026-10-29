@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { graffitiWallTexture, skyTexture, tileTexture } from '../characters/textures';
 import { RetroPass } from './retro';
 
@@ -12,7 +16,7 @@ export function createStage(container: HTMLElement) {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.85;
+  renderer.toneMappingExposure = 0.95;
   container.appendChild(renderer.domElement);
   const retro = new RetroPass(renderer);
 
@@ -23,18 +27,19 @@ export function createStage(container: HTMLElement) {
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
   const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
-  camera.position.set(1.4, 1.35, 5.2);
+  camera.position.set(1.2, 1.25, 4.4);
 
   const controls = new OrbitControls(camera, renderer.domElement);
-  controls.target.set(0, 0.95, 0);
+  controls.target.set(0, 0.85, 0);
   controls.enableDamping = true;
   controls.enablePan = false;
   controls.minDistance = 1.2;
   controls.maxDistance = 7;
   controls.maxPolarAngle = Math.PI * 0.55;
 
-  scene.add(new THREE.HemisphereLight('#ffd9e6', '#3a2f4a', 0.75));
-  const sun = new THREE.DirectionalLight('#ffc9a3', 1.7);
+  // luz cálida de atardecer, como una oficina con el sol entrando por la ventana
+  scene.add(new THREE.HemisphereLight('#ffe2c2', '#4a3550', 0.9));
+  const sun = new THREE.DirectionalLight('#ffc78f', 2.4);
   sun.position.set(3, 5, 4);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
@@ -43,7 +48,7 @@ export function createStage(container: HTMLElement) {
   sun.shadow.bias = -0.0005;
   scene.add(sun);
   // luz de contorno por detrás para que el personaje se despegue del fondo
-  const rim = new THREE.DirectionalLight('#9ec5ff', 1.3);
+  const rim = new THREE.DirectionalLight('#9ec5ff', 1.1);
   rim.position.set(-3, 3, -4);
   scene.add(rim);
 
@@ -69,15 +74,27 @@ export function createStage(container: HTMLElement) {
   curb.receiveShadow = true;
   scene.add(curb);
 
+  // brillo suave en las zonas más iluminadas
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.18, 0.4, 1.1));
+  composer.addPass(new OutputPass());
+
+  const render = () => {
+    if (retro.enabled) retro.render(scene, camera);
+    else composer.render();
+  };
+
   const resize = () => {
     const { clientWidth: w, clientHeight: h } = container;
     renderer.setSize(w, h);
     retro.setSize(w, h);
+    composer.setSize(w, h);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   };
   new ResizeObserver(resize).observe(container);
   resize();
 
-  return { renderer, scene, camera, controls, retro };
+  return { renderer, scene, camera, controls, retro, render };
 }

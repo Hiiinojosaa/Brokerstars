@@ -116,7 +116,7 @@ export function createCreator(
   let config = { ...initial };
   let tab = TABS[0].id;
   let pose: Pose = 'quieto';
-  let retro = true;
+  let retro = false;
 
   const set = (next: CharacterConfig) => {
     config = next;

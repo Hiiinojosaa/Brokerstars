@@ -1,6 +1,6 @@
 # Brokerstars
 
-Simulador de vida de joven millonario en 3D low-poly estilo PS2.
+Simulador de vida de joven millonario en 3D estilo cartoon tipo juguete.
 
 ```bash
 npm install

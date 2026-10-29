@@ -21,10 +21,7 @@ function makeTexture(
   draw(ctx, size, height);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
-  // filtro "nearest": píxeles nítidos, como en PS2
-  tex.magFilter = THREE.NearestFilter;
-  tex.minFilter = THREE.NearestFilter;
-  tex.generateMipmaps = false;
+  tex.anisotropy = 4;
   cache.set(key, tex);
   return tex;
 }

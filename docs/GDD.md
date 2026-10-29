@@ -4,7 +4,7 @@
 > y vas subiendo: oficina, negocios, lujo... o el lado oscuro.
 
 ## Visión
-- **Estilo:** low-poly estilo PS2 / mods de San Andreas: pocas caras y todo el detalle pintado en texturas pixeladas, con filtro de pixelado y dithering con ropa streetwear y ambiente urbano tipo GTA.
+- **Estilo:** cartoon tipo juguete, como los juegos de oficina de estafadores: cabeza grande en forma de huevo, cuerpo blandito, colores vivos, luz cálida y un poco de bloom. Queda un filtro "PS2" opcional (pixelado y dithering).
 - **Multijugador cooperativo:** juegas y roleas con tus colegas en el mismo mundo.
 - **Bucle adictivo:** siempre hay un siguiente objetivo (planta, coche, reloj, negocio).
 

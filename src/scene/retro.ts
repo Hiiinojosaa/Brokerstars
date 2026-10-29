@@ -40,7 +40,7 @@ const fragmentShader = /* glsl */ `
 `;
 
 export class RetroPass {
-  enabled = true;
+  enabled = false;
   pixelSize = 3;
   private target: THREE.WebGLRenderTarget;
   private quad: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;

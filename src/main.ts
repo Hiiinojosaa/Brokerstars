@@ -7,7 +7,7 @@ import { createCreator, loadSaved } from './ui/creator';
 const viewport = document.getElementById('viewport')!;
 const panel = document.getElementById('panel')!;
 
-const { renderer, scene, camera, controls, retro } = createStage(viewport);
+const { renderer, scene, camera, controls, retro, render } = createStage(viewport);
 
 const initial = loadSaved();
 const character = new Character(initial);
@@ -32,7 +32,7 @@ renderer.setAnimationLoop(() => {
   const dt = clock.getDelta();
   character.update(dt);
   controls.update();
-  retro.render(scene, camera);
+  render();
 });
 
 // para pruebas desde la consola / tests automáticos

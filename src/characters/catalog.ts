@@ -8,7 +8,7 @@ export const OPTIONS = {
   face: { normal: 'Normal', chulo: 'Chulo', feliz: 'Feliz', serio: 'Serio', enfadado: 'Enfadado' },
   hairStyle: { rapado: 'Rapado', degradado: 'Degradado', rizos: 'Rizos', trenzas: 'Trenzas', pinchos: 'Pinchos', calvo: 'Calvo' },
   facialHair: { nada: 'Nada', bigote: 'Bigote', perilla: 'Bigote + perilla', barba: 'Barba' },
-  hat: { ninguno: 'Nada', gorra: 'Gorra plana', gorra_atras: 'Gorra hacia atrás', gorro: 'Gorro', pescador: 'Pescador' },
+  hat: { ninguno: 'Nada', gorra: 'Gorra plana', gorra_atras: 'Gorra hacia atrás', gorro: 'Gorro', pescador: 'Pescador', cascos: 'Cascos con micro' },
   glasses: { ninguna: 'Nada', oscuras: 'Gafas oscuras', sin_montura: 'Sin montura' },
   top: { camiseta: 'Camiseta oversize', manga_larga: 'Manga larga', sudadera: 'Sudadera', camiseta_sobre_larga: 'Camiseta + manga larga' },
   print: { ninguno: 'Liso', hamsa: 'Hamsa', hand: 'HAND', gh: 'GH', brokerstars: 'Brokerstars', dolar: '$', mono: 'Mono camo' },
