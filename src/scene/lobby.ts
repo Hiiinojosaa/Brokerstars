@@ -7,7 +7,7 @@ import { collectCash, waitingCash } from '../game/scam';
 import { ShopCart, checkoutPanel, shelfPanel, takeCart } from '../game/shop';
 import { inside, rect, type Floor, type Game, type Interactable, type Rect } from '../game/world';
 import { createElevator } from './elevator';
-import { box, cyl, glow, mats, plant } from './props';
+import { box, cyl, glow, mats, plant, wallWithGap } from './props';
 import { signTexture, sunsetTexture } from './officeTextures';
 
 // Planta 0 · Calle. Tres zonas separadas por paredes:
@@ -139,7 +139,7 @@ export function createLobby(gameRef: () => Game): Floor {
   const wall = new THREE.MeshStandardMaterial({ color: '#e3dccf', roughness: 0.9 });
   const bankWall = new THREE.MeshStandardMaterial({ color: '#1b3a66', roughness: 0.7 });
   const shopWall = new THREE.MeshStandardMaterial({ color: '#f4f1ea', roughness: 0.9 });
-  g.add(box(W, H, 0.2, wall, 0, H / 2, -D / 2 - 0.1));
+  g.add(wallWithGap('x', W, H, 0.2, wall, -D / 2 - 0.1, 0, 2.0, 2.5));
   g.add(box(0.2, H, D, bankWall, -W / 2 - 0.1, H / 2, 0));
   g.add(box(0.2, H, D, shopWall, W / 2 + 0.1, H / 2, 0));
   wallZ(g, colliders, BANK_X, bankWall, DOOR);
@@ -339,7 +339,7 @@ export function createLobby(gameRef: () => Game): Floor {
     interactables,
     arrival: elevator.inside,
     dynamicColliders: elevator.doorCollider,
-    onArrive: () => elevator.open(),
+    onArrive: (from) => elevator.arrive(from),
     update: (dt) => {
       mule.root.visible = waitingCash(gameRef()).length > 0;
       for (const p of people) p.update(dt);

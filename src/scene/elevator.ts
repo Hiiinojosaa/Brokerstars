@@ -16,6 +16,31 @@ export const FLOOR_NAMES: Record<number, string> = {
 
 type Facing = 'north' | 'south' | 'east' | 'west';
 
+// La cabina es una sola para toda la torre: está en una planta y se mueve.
+export const lift = { floor: 0, moving: false, dir: 0 };
+const SECONDS_PER_FLOOR = 1.1;
+
+let audio: AudioContext | null = null;
+function ding() {
+  try {
+    audio ??= new AudioContext();
+    const t = audio.currentTime;
+    for (const [freq, at] of [[880, 0], [660, 0.18]] as const) {
+      const o = audio.createOscillator();
+      const g = audio.createGain();
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t + at);
+      g.gain.exponentialRampToValueAtTime(0.25, t + at + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.9);
+      o.connect(g).connect(audio.destination);
+      o.start(t + at);
+      o.stop(t + at + 1);
+    }
+  } catch {
+    // sin audio
+  }
+}
+
 const W = 1.8; // ancho de la puerta
 const DEPTH = 1.9; // fondo de la cabina
 const H = 2.4;
@@ -50,6 +75,7 @@ export interface Elevator {
   close(): void;
   isOpen(): boolean;
   playerInside(x: number, z: number): boolean;
+  arrive(from: number): void;
 }
 
 export function createElevator(game: () => Game, level: number, x: number, z: number, facing: Facing): Elevator {
@@ -71,7 +97,15 @@ export function createElevator(game: () => Game, level: number, x: number, z: nu
   const ind = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.19), new THREE.MeshStandardMaterial({ map: indicator.tex, emissive: '#ffffff', emissiveMap: indicator.tex, emissiveIntensity: 1.2 }));
   ind.position.set(0, H + 0.3, 0.13);
   g.add(ind);
+  // el mismo indicador dentro de la cabina, encima de la puerta
+  const indIn = ind.clone();
+  indIn.position.set(0, H - 0.25, -0.08);
+  indIn.rotation.y = Math.PI;
+  g.add(indIn);
+  let shown = '';
   const setIndicator = (text: string) => {
+    if (text === shown) return;
+    shown = text;
     const { ctx, canvas } = indicator;
     ctx.fillStyle = '#111';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -154,6 +188,27 @@ export function createElevator(game: () => Game, level: number, x: number, z: nu
   const insidePoint = toWorld(0, -DEPTH / 2 - 0.1);
   const callPoint = toWorld(0.3, 1.0);
   const panelPoint = toWorld(0, -DEPTH / 2);
+  const doorPoint = toWorld(0, 0.5);
+
+  // mueve la cabina planta a planta hasta `to` y luego llama a `done`
+  let rideTimer = 0;
+  let rideTo = level;
+  let onRideEnd: (() => void) | null = null;
+  const ride = (to: number, done: () => void) => {
+    rideTo = to;
+    onRideEnd = done;
+    lift.moving = lift.floor !== to;
+    lift.dir = Math.sign(to - lift.floor);
+    rideTimer = SECONDS_PER_FLOOR;
+    if (!lift.moving) done();
+  };
+  const arriveHere = () => {
+    lift.floor = level;
+    lift.moving = false;
+    ding();
+    target = 1;
+    holdTimer = 9;
+  };
 
   const elevator: Elevator = {
     group: g,
@@ -162,9 +217,18 @@ export function createElevator(game: () => Game, level: number, x: number, z: nu
     doorCollider: () => (openAmount < 0.8 ? [worldRect(0, 0, W, 0.12)] : []),
     inside: { x: insidePoint.x, z: insidePoint.z, rotY: rotY },
     interactables: [],
+    // llamar desde fuera: la cabina viene desde donde esté
     open() {
-      target = 1;
-      holdTimer = 7;
+      if (lift.moving) return;
+      if (lift.floor === level) arriveHere();
+      else ride(level, arriveHere);
+    },
+    // llegar con el jugador dentro: la cabina viaja desde `from`
+    arrive(from) {
+      lift.floor = from;
+      openAmount = 0;
+      target = 0;
+      ride(level, arriveHere);
     },
     close() {
       target = 0;
@@ -175,7 +239,27 @@ export function createElevator(game: () => Game, level: number, x: number, z: nu
       openAmount += Math.sign(target - openAmount) * Math.min(Math.abs(target - openAmount), dt * 1.3);
       left.position.x = -W / 4 - openAmount * (W / 2 - 0.05);
       right.position.x = W / 4 + openAmount * (W / 2 - 0.05);
-      callLight.emissiveIntensity = target === 1 ? 1.5 : 0.2;
+      callLight.emissiveIntensity = target === 1 || (lift.moving && rideTo === level) ? 1.5 : 0.2;
+      if (lift.moving && onRideEnd) {
+        rideTimer -= dt;
+        if (rideTimer <= 0) {
+          lift.floor += lift.dir;
+          rideTimer = SECONDS_PER_FLOOR;
+          if (lift.floor === rideTo) {
+            const done = onRideEnd;
+            onRideEnd = null;
+            lift.moving = false;
+            done();
+          }
+        }
+      }
+      setIndicator(lift.moving ? `${lift.dir > 0 ? '▲' : '▼'}${lift.floor}` : String(lift.floor));
+      // sensor de la puerta: si la cabina está aquí y te acercas, se abre
+      const pp = game().player.pos;
+      if (target === 0 && !lift.moving && lift.floor === level && Math.hypot(pp.x - doorPoint.x, pp.z - doorPoint.z) < 1.1) {
+        target = 1;
+        holdTimer = 4;
+      }
       if (target === 1) {
         const p = game().player.pos;
         // mientras estés en la cabina o en la puerta, no se cierra
@@ -191,14 +275,18 @@ export function createElevator(game: () => Game, level: number, x: number, z: nu
     x: callPoint.x,
     z: callPoint.z,
     radius: 1.2,
-    enabled: () => !elevator.playerInside(game().player.pos.x, game().player.pos.z) && target === 0,
-    run: () => elevator.open(),
+    enabled: () => !elevator.playerInside(game().player.pos.x, game().player.pos.z) && target === 0 && !lift.moving,
+    run: () => {
+      elevator.open();
+      if (lift.moving) game().hud.toast(`Ascensor en camino desde la planta ${lift.floor}…`, '');
+    },
   });
   elevator.interactables.push({
     label: 'Botonera del ascensor',
     x: panelPoint.x,
     z: panelPoint.z,
-    radius: 1.0,
+    radius: 0.9,
+    enabled: () => !lift.moving && elevator.playerInside(game().player.pos.x, game().player.pos.z),
     run: () => {
       const gm = game();
       gm.hud.openPanel('Ascensor · Torre Brokerstars', (body) => {
@@ -209,14 +297,13 @@ export function createElevator(game: () => Game, level: number, x: number, z: nu
           b.onclick = () => {
             if (lv === level) return;
             b.classList.add('lit');
-            gm.hud.closePanel();
+            setTimeout(() => gm.hud.closePanel(), 250);
             target = 0;
-            // primero se cierran las puertas y luego se viaja
+            // se cierran las puertas con el jugador dentro y la cabina viaja
             setTimeout(() => {
-              setIndicator('▲▼');
-              gm.travel(lv);
-              setTimeout(() => setIndicator(String(level)), 600);
-            }, 1100);
+              if (!elevator.playerInside(gm.player.pos.x, gm.player.pos.z)) return;
+              gm.travel(lv, level);
+            }, 1300);
           };
           pad.append(b);
         }

@@ -71,3 +71,20 @@ export function plant(scale = 1) {
   }
   return g;
 }
+
+// Pared recta con un hueco (para la puerta del ascensor). `along` es el eje
+// en el que se extiende la pared; `pos` la posición en el otro eje.
+export function wallWithGap(along: 'x' | 'z', len: number, h: number, thick: number, m: THREE.Material, pos: number, gapCenter: number, gapWidth: number, gapHeight: number) {
+  const g = new THREE.Group();
+  const a0 = -len / 2, a1 = len / 2;
+  const g0 = gapCenter - gapWidth / 2, g1 = gapCenter + gapWidth / 2;
+  const piece = (from: number, to: number, y0: number, y1: number) => {
+    if (to - from <= 0.001 || y1 - y0 <= 0.001) return;
+    const c = (from + to) / 2, l = to - from;
+    g.add(along === 'x' ? box(l, y1 - y0, thick, m, c, (y0 + y1) / 2, pos) : box(thick, y1 - y0, l, m, pos, (y0 + y1) / 2, c));
+  };
+  piece(a0, g0, 0, h);
+  piece(g1, a1, 0, h);
+  piece(g0, g1, gapHeight, h);
+  return g;
+}

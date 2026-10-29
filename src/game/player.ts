@@ -21,6 +21,8 @@ export class Player {
   pitch = 0.32;
   dist = 3.4;
   seated = false;
+  // al teletransportarse, la cámara salta en vez de deslizarse
+  private snap = true;
   // empujando el carro de la compra se va más despacio
   slow = false;
 
@@ -32,6 +34,7 @@ export class Player {
     this.pos.set(x, 0, z);
     this.heading = rotY;
     this.yaw = rotY + Math.PI;
+    this.snap = true;
     this.sync();
   }
 
@@ -157,7 +160,9 @@ export class Player {
     let k = 1;
     while (k > 0.15 && !ok(target.x + (cam.x - target.x) * k, target.z + (cam.z - target.z) * k)) k -= 0.08;
     cam.set(target.x + (cam.x - target.x) * k, target.y + (cam.y - target.y) * Math.max(k, 0.5), target.z + (cam.z - target.z) * k);
-    this.camera.position.lerp(cam, 0.35);
+    if (this.snap) this.camera.position.copy(cam);
+    else this.camera.position.lerp(cam, 0.35);
+    this.snap = false;
     this.camera.lookAt(target);
   }
 }

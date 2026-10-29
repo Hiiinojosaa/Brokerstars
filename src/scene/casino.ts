@@ -9,7 +9,7 @@ import { rect, type Floor, type Game, type Interactable, type Rect } from '../ga
 import { createAtm } from './atm';
 import { createElevator } from './elevator';
 import { signTexture } from './officeTextures';
-import { box, cyl, glow, mats } from './props';
+import { box, cyl, glow, mats, wallWithGap } from './props';
 
 // Planta 3 · Casino Royale: ruletas, blackjack, póker, tragaperras,
 // apuestas deportivas con pantallas gigantes, bar, boutique de lujo, caja
@@ -248,7 +248,7 @@ export function createCasino(gameRef: () => Game): Floor {
   g.add(ceiling);
   const wall = new THREE.MeshStandardMaterial({ color: '#3a0d14', roughness: 0.8 });
   g.add(box(W, H, 0.2, wall, 0, H / 2, -D / 2 - 0.1), box(W, H, 0.2, wall, 0, H / 2, D / 2 + 0.1));
-  g.add(box(0.2, H, D, wall, -W / 2 - 0.1, H / 2, 0), box(0.2, H, D, wall, W / 2 + 0.1, H / 2, 0));
+  g.add(box(0.2, H, D, wall, -W / 2 - 0.1, H / 2, 0), wallWithGap('z', D, H, 0.2, wall, W / 2 + 0.1, -2.0, 2.0, 2.5));
   // molduras doradas
   for (const z of [-D / 2 + 0.01, D / 2 - 0.01]) g.add(box(W, 0.08, 0.04, gold, 0, 2.6, z));
   for (const x of [-W / 2 + 0.01, W / 2 - 0.01]) g.add(box(0.04, 0.08, D, gold, x, 2.6, 0));
@@ -450,7 +450,7 @@ export function createCasino(gameRef: () => Game): Floor {
     interactables,
     arrival: elevator.inside,
     dynamicColliders: elevator.doorCollider,
-    onArrive: () => elevator.open(),
+    onArrive: (from) => elevator.arrive(from),
     update: (dt) => {
       for (const p of people) p.update(dt);
       elevator.update(dt);

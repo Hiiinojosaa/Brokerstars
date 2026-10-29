@@ -21,7 +21,7 @@ import {
   tickerCanvas,
   whiteboardTexture,
 } from './officeTextures';
-import { box, chair, cyl, glow, mats, plant } from './props';
+import { box, chair, cyl, glow, mats, plant, wallWithGap } from './props';
 
 export { box, cyl, glow, mats, plant } from './props';
 
@@ -174,7 +174,7 @@ export function createOffice(gameRef: () => Game, market: Market): Floor {
   // paredes; ventanales al sur (detrás de la cámara al entrar) y al oeste
   const wall = new THREE.MeshStandardMaterial({ color: '#d9cdb8', roughness: 0.9 });
   g.add(box(W, H, 0.2, wall, 0, H / 2, -D / 2 - 0.1));
-  g.add(box(0.2, H, D, wall, W / 2 + 0.1, H / 2, 0));
+  g.add(wallWithGap('z', D, H, 0.2, wall, W / 2 + 0.1, 5.6, 2.0, 2.5));
   const sky = new THREE.MeshBasicMaterial({ map: sunsetTexture(), toneMapped: false });
   for (const [cx, cz, rot, len] of [[0, D / 2 + 0.6, Math.PI, W], [-W / 2 - 0.6, 0, Math.PI / 2, D]] as const) {
     const view = new THREE.Mesh(new THREE.PlaneGeometry(len, H), sky);
@@ -398,7 +398,7 @@ export function createOffice(gameRef: () => Game, market: Market): Floor {
     interactables,
     arrival: elevator.inside,
     dynamicColliders: elevator.doorCollider,
-    onArrive: () => elevator.open(),
+    onArrive: (from) => elevator.arrive(from),
     update: (dt) => {
       for (const p of people) p.update(dt);
       elevator.update(dt);

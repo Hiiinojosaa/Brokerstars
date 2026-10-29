@@ -74,7 +74,7 @@ let floor: Floor;
 const floors = new Map<number, Floor>();
 const game: Game = {
   state, hud, phone, player,
-  travel: (level) => travel(level),
+  travel: (level, from) => travel(level, from),
   use: (action) => (action === 'microwave' ? microwavePanel() : action === 'coffee' ? coffee() : inventoryPanel()),
 };
 const gameRef = () => game;
@@ -93,14 +93,18 @@ function goToFloor(level: number) {
   hud.setFloor(floor.name);
 }
 
-function travel(level: number) {
-  hud.fade(() => {
+function travel(level: number, from?: number) {
+  const go = () => {
+    const prev = floor.level;
     goToFloor(level);
     player.place(floor.arrival.x, floor.arrival.z, floor.arrival.rotY);
-    floor.onArrive?.();
+    floor.onArrive?.(from ?? prev);
     if (level === 1) state.complete('subir');
     if (level === 3) state.complete('casino');
-  });
+  };
+  // dentro de la cabina todas las plantas se ven igual: el cambio no se nota
+  if (from !== undefined) go();
+  else hud.fade(go);
 }
 
 goToFloor(0);

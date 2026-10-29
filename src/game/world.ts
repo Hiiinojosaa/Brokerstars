@@ -31,8 +31,8 @@ export interface Game {
   hud: Hud;
   phone: Phone;
   player: Player;
-  // viaje en ascensor a otra planta
-  travel(level: number): void;
+  // viaje en ascensor a otra planta (sin fundido si se va dentro de la cabina)
+  travel(level: number, from?: number): void;
   // acciones compartidas por varias plantas
   use(action: 'microwave' | 'coffee' | 'inventory'): void;
 }
@@ -54,7 +54,7 @@ export interface Floor {
   dynamicColliders?: () => Rect[];
   update(dt: number): void;
   // se llama al llegar en ascensor
-  onArrive?(): void;
+  onArrive?(from: number): void;
 }
 
 export function rect(cx: number, cz: number, w: number, d: number): Rect {

@@ -8,7 +8,7 @@ import { rect, type Floor, type Game, type Interactable, type Rect } from '../ga
 import { createAtm } from './atm';
 import { createElevator } from './elevator';
 import { carpetTexture, keyboardTexture, screenTexture, signTexture } from './officeTextures';
-import { box, chair, cyl, glow, mats, plant } from './props';
+import { box, chair, cyl, glow, mats, plant, wallWithGap } from './props';
 
 // Planta 2 · La Planta Gris: sala de estafadores con las persianas bajadas,
 // rincón de los muleros, mesa OTC del cambista, cuarto del hacker y el
@@ -64,7 +64,7 @@ export function createGrayFloor(gameRef: () => Game): Floor {
   g.add(ceiling);
   const wall = new THREE.MeshStandardMaterial({ color: '#4a4652', roughness: 0.9 });
   g.add(box(W, H, 0.2, wall, 0, H / 2, -D / 2 - 0.1), box(W, H, 0.2, wall, 0, H / 2, D / 2 + 0.1));
-  g.add(box(0.2, H, D, wall, -W / 2 - 0.1, H / 2, 0), box(0.2, H, D, wall, W / 2 + 0.1, H / 2, 0));
+  g.add(box(0.2, H, D, wall, -W / 2 - 0.1, H / 2, 0), wallWithGap('z', D, H, 0.2, wall, W / 2 + 0.1, 0.6, 2.0, 2.5));
   // persianas bajadas en la pared sur
   const blind = new THREE.MeshStandardMaterial({ color: '#8f8a80' });
   for (let x = -8; x <= -1; x += 3.5) for (let y = 0.95; y < 2.4; y += 0.08) g.add(box(2.8, 0.05, 0.03, blind, x, y, D / 2 - 0.02));
@@ -251,7 +251,7 @@ export function createGrayFloor(gameRef: () => Game): Floor {
     interactables,
     arrival: elevator.inside,
     dynamicColliders: elevator.doorCollider,
-    onArrive: () => elevator.open(),
+    onArrive: (from) => elevator.arrive(from),
     update: (dt) => {
       for (const p of people) p.update(dt);
       elevator.update(dt);
