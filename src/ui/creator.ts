@@ -243,7 +243,9 @@ export function createCreator(
       } catch {
         // sin almacenamiento se juega con el personaje por defecto
       }
-      location.href = './index.html';
+      // se vuelve al juego (si se llegó desde él) o se abre su página
+      if (document.referrer && history.length > 1) history.back();
+      else location.href = './index.html';
     };
     actions.append(play, save, exportBtn);
     root.append(actions);
