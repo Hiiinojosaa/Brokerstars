@@ -144,8 +144,9 @@ export function createElevator(game: () => Game, level: number, x: number, z: nu
   let target = 0;
   let holdTimer = 0;
   const cabin = worldRect(0, -DEPTH / 2, W - 0.1, DEPTH - 0.1);
-  // pasillo de entrada a través de la pared
-  const doorway = worldRect(0, 0, W - 0.3, 0.6);
+  // pasillo de entrada a través de la pared: se solapa con la sala y con la
+  // cabina para que se pueda pasar andando de una a otra
+  const doorway = worldRect(0, -0.05, W - 0.3, 2.1);
   const walkable: Rect = {
     minX: Math.min(cabin.minX, doorway.minX), maxX: Math.max(cabin.maxX, doorway.maxX),
     minZ: Math.min(cabin.minZ, doorway.minZ), maxZ: Math.max(cabin.maxZ, doorway.maxZ),
@@ -177,7 +178,8 @@ export function createElevator(game: () => Game, level: number, x: number, z: nu
       callLight.emissiveIntensity = target === 1 ? 1.5 : 0.2;
       if (target === 1) {
         const p = game().player.pos;
-        const inCabin = elevator.playerInside(p.x, p.z);
+        // mientras estés en la cabina o en la puerta, no se cierra
+        const inCabin = p.x >= walkable.minX && p.x <= walkable.maxX && p.z >= walkable.minZ && p.z <= walkable.maxZ;
         holdTimer -= dt;
         if (holdTimer <= 0 && !inCabin) target = 0;
       }
