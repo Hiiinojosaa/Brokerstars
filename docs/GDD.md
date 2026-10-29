@@ -4,7 +4,7 @@
 > y vas subiendo: oficina, negocios, lujo... o el lado oscuro.
 
 ## Visión
-- **Estilo:** 3D estilizado tipo Roblox (piezas redondeadas, cabeza grande, cara dibujada) con ropa streetwear y ambiente urbano tipo GTA.
+- **Estilo:** 3D cartoon con proporciones humanas (cabeza ovalada con cara dibujada, cuerpo con forma) con ropa streetwear y ambiente urbano tipo GTA.
 - **Multijugador cooperativo:** juegas y roleas con tus colegas en el mismo mundo.
 - **Bucle adictivo:** siempre hay un siguiente objetivo (planta, coche, reloj, negocio).
 

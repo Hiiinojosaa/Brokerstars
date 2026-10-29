@@ -21,49 +21,44 @@ function makeTexture(key: string, size: number, draw: (ctx: CanvasRenderingConte
   return tex;
 }
 
-// Mano de Fátima con ojo, centrada en (cx, cy) y de alto h.
+// Mano de Fátima rellena con el ojo calado, centrada en (cx, cy) y de alto h.
 function drawHamsa(ctx: CanvasRenderingContext2D, cx: number, cy: number, h: number, color: string) {
   const u = h / 10;
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = u * 0.45;
-  ctx.lineJoin = 'round';
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  // dedos centrales
-  const fingers = [-1.9, -0.65, 0.65, 1.9];
-  const tops = [-3.2, -4.4, -4.4, -3.2];
-  // pulgares abiertos hacia fuera, como en la hamsa clásica
-  ctx.moveTo(-1.2 * u, 4.6 * u);
-  ctx.quadraticCurveTo(-3.6 * u, 4.4 * u, -3.9 * u, 2 * u);
-  ctx.lineTo(-4.4 * u, 0.2 * u);
-  ctx.quadraticCurveTo(-4.3 * u, -0.6 * u, -3.4 * u, -0.2 * u);
-  ctx.lineTo(-2.5 * u, 0.6 * u);
-  for (let i = 0; i < fingers.length; i++) {
-    const x = fingers[i] * u;
-    const w = 0.55 * u;
-    ctx.lineTo(x - w, -0.6 * u);
-    ctx.lineTo(x - w, tops[i] * u);
-    ctx.quadraticCurveTo(x, (tops[i] - 0.8) * u, x + w, tops[i] * u);
-    ctx.lineTo(x + w, -0.6 * u);
-  }
-  ctx.lineTo(2.5 * u, 0.6 * u);
-  ctx.lineTo(3.4 * u, -0.2 * u);
-  ctx.quadraticCurveTo(4.3 * u, -0.6 * u, 4.4 * u, 0.2 * u);
-  ctx.lineTo(3.9 * u, 2 * u);
-  ctx.quadraticCurveTo(3.6 * u, 4.4 * u, 1.2 * u, 4.6 * u);
-  ctx.closePath();
-  ctx.stroke();
-  // ojo
-  ctx.beginPath();
-  ctx.moveTo(-1.8 * u, 1.6 * u);
-  ctx.quadraticCurveTo(0, 0.2 * u, 1.8 * u, 1.6 * u);
-  ctx.quadraticCurveTo(0, 3 * u, -1.8 * u, 1.6 * u);
-  ctx.stroke();
   ctx.fillStyle = color;
+  const pill = (x: number, y: number, w: number, hh: number, angle = 0) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.roundRect(-w / 2, -hh / 2, w, hh, w / 2);
+    ctx.fill();
+    ctx.restore();
+  };
+  // palma
   ctx.beginPath();
-  ctx.arc(0, 1.6 * u, 0.55 * u, 0, Math.PI * 2);
+  ctx.moveTo(-3 * u, -0.5 * u);
+  ctx.lineTo(3 * u, -0.5 * u);
+  ctx.quadraticCurveTo(3.4 * u, 4.6 * u, 0, 4.9 * u);
+  ctx.quadraticCurveTo(-3.4 * u, 4.6 * u, -3 * u, -0.5 * u);
+  ctx.fill();
+  // tres dedos centrales y dos pulgares hacia fuera
+  pill(-1.75 * u, -2.2 * u, 1.55 * u, 4.2 * u);
+  pill(0, -2.7 * u, 1.55 * u, 5 * u);
+  pill(1.75 * u, -2.2 * u, 1.55 * u, 4.2 * u);
+  pill(-3.6 * u, 0.6 * u, 1.45 * u, 3.6 * u, -0.5);
+  pill(3.6 * u, 0.6 * u, 1.45 * u, 3.6 * u, 0.5);
+  // ojo calado
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.beginPath();
+  ctx.moveTo(-2 * u, 1.9 * u);
+  ctx.quadraticCurveTo(0, 0.3 * u, 2 * u, 1.9 * u);
+  ctx.quadraticCurveTo(0, 3.5 * u, -2 * u, 1.9 * u);
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.beginPath();
+  ctx.arc(0, 1.9 * u, 0.65 * u, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -73,8 +68,8 @@ function shade(hex: string, k: number) {
   return '#' + c.getHexString();
 }
 
-// Cara estilo Roblox: se dibuja sobre un plano en la parte delantera de la
-// cabeza. Tiene fondo transparente; los párpados usan el color de la piel.
+// Cara dibujada: se proyecta sobre la parte delantera de la cabeza.
+// Tiene fondo transparente; los párpados usan el color de la piel.
 export function faceTexture(face: Face, facialHair: FacialHair, skin: string, hair: string) {
   return makeTexture(`face:${face}:${facialHair}:${skin}:${hair}`, 256, (ctx, s) => {
     ctx.clearRect(0, 0, s, s);
@@ -106,8 +101,15 @@ export function faceTexture(face: Face, facialHair: FacialHair, skin: string, ha
 
       // párpado: medio cerrado si va de chulo o serio
       const lid = face === 'chulo' ? 9 : face === 'serio' || face === 'enfadado' ? 4 : 0;
-      ctx.fillStyle = skin;
-      ctx.fillRect(x - 24, eyeY - 20, 48, 6 + lid);
+      if (lid > 0) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(x, eyeY, 21, 16, 0, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.fillStyle = skin;
+        ctx.fillRect(x - 24, eyeY - 20, 48, 6 + lid);
+        ctx.restore();
+      }
       ctx.strokeStyle = ink;
       ctx.lineWidth = 4;
       ctx.beginPath();
@@ -123,14 +125,6 @@ export function faceTexture(face: Face, facialHair: FacialHair, skin: string, ha
       ctx.quadraticCurveTo(x, eyeY - 38, x + side * 22, eyeY - 33 - tilt * 0.3);
       ctx.stroke();
     }
-
-    // nariz
-    ctx.strokeStyle = shade(skin, 0.75);
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(s / 2 - 10, 146);
-    ctx.quadraticCurveTo(s / 2, 154, s / 2 + 10, 146);
-    ctx.stroke();
 
     // vello facial (debajo de la boca para que la boca quede encima)
     ctx.fillStyle = hair;
