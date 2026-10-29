@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { CharacterConfig } from './types';
-import { faceTexture, printTexture } from './textures';
+import { billTexture, denimTexture, faceTexture, printTexture } from './textures';
 
 // Personaje cartoon con proporciones humanas: torso con forma, brazos y
 // piernas que se estrechan, cabeza ovalada con la cara dibujada encima.
 // El origen está en los pies y mira hacia +Z. Brazos y piernas cuelgan
 // de pivotes para poder animarlos.
 
-export type Pose = 'quieto' | 'pose' | 'brazos_cruzados';
+export type Pose = 'quieto' | 'pose' | 'brazos_cruzados' | 'billetes';
 
 const BUILD_SCALE = { flaco: 0.88, normal: 1, grande: 1.2 };
 const SEG = 14;
@@ -117,6 +117,7 @@ function faceShell(m: THREE.Material) {
 interface Limb {
   root: THREE.Group;
   joint: THREE.Group;
+  hand: THREE.Group;
 }
 
 export class Character {
@@ -124,6 +125,7 @@ export class Character {
   private upper = new THREE.Group();
   private head = new THREE.Group();
   private arms: { left: Limb; right: Limb } | null = null;
+  private cash = new THREE.Group();
   private time = Math.random() * 10;
   pose: Pose = 'quieto';
 
@@ -161,7 +163,7 @@ export class Character {
   private buildLegs(k: number) {
     const c = this.config;
     const skin = mat(c.skin, 0.55);
-    const pants = mat(c.pantsColor, 0.85);
+    const pants = new THREE.MeshStandardMaterial({ color: c.pantsColor, roughness: 0.9, map: denimTexture(c.pants === 'pitillo') });
     const shoe = mat(c.shoesColor, 0.5);
     const white = mat('#f4f4f0', 0.5);
     const hipY = 0.86;
@@ -180,6 +182,14 @@ export class Character {
         hip.add(at(limb(0.098 * k, 0.112 * k, 0.52, pants), 0, -0.25, 0));
         knee.add(at(limb(0.052 * k, 0.04 * k, shin, skin), 0, -shin / 2, 0));
         knee.add(at(limb(0.05 * k, 0.047 * k, 0.17, white), 0, -0.3, 0)); // calcetín alto
+      } else if (c.pants === 'pitillo') {
+        hip.add(at(limb(0.088 * k, 0.07 * k, thigh, pants), 0, -thigh / 2, 0));
+        knee.add(at(limb(0.07 * k, 0.058 * k, shin, pants), 0, -shin / 2, 0));
+        // pernera apilada: varios pliegues sobre la zapatilla
+        for (let i = 0; i < 5; i++) {
+          const r = (0.066 + (i % 2) * 0.008) * k;
+          knee.add(at(limb(r, r + 0.004, 0.032, pants), 0, -shin + 0.03 + i * 0.03, (i % 2) * 0.004));
+        }
       } else {
         const wide = c.pants === 'anchos';
         hip.add(at(limb((wide ? 0.102 : 0.09) * k, (wide ? 0.108 : 0.072) * k, thigh, pants), 0, -thigh / 2, 0));
@@ -298,6 +308,26 @@ export class Character {
             head.add(at(curl, x, y, z));
           }
         }
+      } else if (c.hairStyle === 'pinchos') {
+        // mechones en punta repartidos por la cabeza (espiral de Fibonacci)
+        const up = new THREE.Vector3(0, 1, 0);
+        const n = 120;
+        for (let i = 0; i < n; i++) {
+          const theta = Math.acos(1 - (i / n) * 1.2);
+          const phi = i * 2.39996;
+          const dir = new THREE.Vector3(Math.sin(theta) * Math.sin(phi), Math.cos(theta), Math.sin(theta) * Math.cos(phi));
+          // deja libre la frente
+          if (dir.z > 0.55 && dir.y < 0.62) continue;
+          // más largos arriba y cortos en los lados, casi todos hacia arriba
+          const len = (0.06 + ((i * 7) % 5) * 0.014) * (0.6 + dir.y * 0.8);
+          const spike = shadowed(new THREE.Mesh(new THREE.ConeGeometry(0.019, len, 5), hair));
+          const tilt = new THREE.Vector3(((i * 13) % 7) - 3, 0, ((i * 5) % 7) - 3).multiplyScalar(0.07);
+          const aim = dir.clone().lerp(up, 0.45).add(tilt).normalize();
+          spike.quaternion.setFromUnitVectors(up, aim);
+          const base = new THREE.Vector3(dir.x * 0.1, 0.02 + dir.y * 0.125, dir.z * 0.11);
+          spike.position.copy(base.add(aim.clone().multiplyScalar(len * 0.3)));
+          head.add(spike);
+        }
       } else if (c.hairStyle === 'trenzas') {
         // cada trenza es una fila de cuentas de la frente a la nuca
         const braid = mat('#' + new THREE.Color(c.hair).multiplyScalar(0.7).getHexString(), 0.6);
@@ -383,12 +413,26 @@ export class Character {
       joint.add(at(ball(0.05 * k, foreMat), 0, 0, 0)); // codo
       joint.add(at(limb(0.049 * k, 0.04 * k, foreLen, foreMat), 0, -foreLen / 2, 0));
       if (longSleeve) joint.add(at(limb(0.046 * k, 0.046 * k, 0.04, sleeve), 0, -foreLen + 0.02, 0)); // puño
-      // mano: palma hacia el cuerpo y pulgar hacia delante
-      joint.add(at(rbox(0.05, 0.11, 0.09, skin, 0.02), 0, -foreLen - 0.055, 0.005));
-      const thumb = rbox(0.026, 0.055, 0.028, skin, 0.011);
-      thumb.rotation.x = 0.4;
-      joint.add(at(thumb, -side * 0.008, -foreLen - 0.035, 0.05));
-      if (c.watch !== 'ninguno' && side === -1) {
+      // mano: palma hacia el cuerpo, cuatro dedos y el pulgar hacia delante
+      const hand = at(new THREE.Group(), 0, -foreLen, 0);
+      joint.add(hand);
+      hand.add(at(rbox(0.045, 0.075, 0.085, skin, 0.018), 0, -0.04, 0.005));
+      for (let i = 0; i < 4; i++) {
+        const finger = limb(0.0105, 0.0095, 0.055 - Math.abs(i - 1.3) * 0.006, skin);
+        finger.rotation.x = (i - 1.5) * 0.08;
+        hand.add(at(finger, 0, -0.1, 0.034 - i * 0.021));
+      }
+      const thumb = limb(0.012, 0.011, 0.05, skin);
+      thumb.rotation.x = 0.7;
+      hand.add(at(thumb, -side * 0.006, -0.035, 0.055));
+      if (c.watch === 'digital' && side === -1) {
+        const rubber = mat('#151515', 0.5);
+        joint.add(at(limb(0.05 * k, 0.05 * k, 0.04, rubber), 0, -foreLen + 0.02, 0));
+        const caseBox = rbox(0.026, 0.06, 0.06, rubber, 0.012);
+        joint.add(at(caseBox, side * 0.052 * k, -foreLen + 0.02, 0));
+        joint.add(at(rbox(0.004, 0.032, 0.036, mat('#8a9488', 0.3), 0.003), side * (0.052 * k + 0.013), -foreLen + 0.02, 0));
+        joint.add(at(rbox(0.006, 0.008, 0.012, mat('#c0392b', 0.4), 0.002), side * (0.052 * k + 0.012), -foreLen + 0.048, 0.02));
+      } else if (c.watch !== 'ninguno' && side === -1) {
         const band = c.watch === 'rolex_oro' ? metal('#e6b84a') : metal('#d4d8dc');
         const ring = new THREE.Mesh(new THREE.TorusGeometry(0.042 * k, 0.009, 8, 20), band);
         ring.rotation.x = Math.PI / 2;
@@ -402,9 +446,23 @@ export class Character {
       }
       root.add(joint);
       this.upper.add(root);
-      return { root, joint };
+      return { root, joint, hand };
     };
     this.arms = { left: make(-1), right: make(1) };
+
+    // abanico de billetes delante de la cara para la pose 'billetes'
+    this.cash = at(new THREE.Group(), 0, 1.47, 0.33);
+    const billMat = new THREE.MeshStandardMaterial({ map: billTexture(), roughness: 0.8, side: THREE.DoubleSide });
+    const count = 11;
+    for (let i = 0; i < count; i++) {
+      const geo = new THREE.PlaneGeometry(0.1, 0.23);
+      geo.translate(0, 0.115, 0);
+      const bill = shadowed(new THREE.Mesh(geo, billMat));
+      bill.rotation.z = 0.95 - (i / (count - 1)) * 1.9;
+      bill.position.z = i * 0.003;
+      this.cash.add(bill);
+    }
+    this.upper.add(this.cash);
   }
 
   private applyPose(sway: number) {
@@ -413,8 +471,18 @@ export class Character {
     for (const a of [left, right]) {
       a.root.rotation.set(0, 0, 0);
       a.joint.rotation.set(0, 0, 0);
+      a.hand.rotation.set(0, 0, 0);
     }
+    this.cash.visible = this.pose === 'billetes';
     switch (this.pose) {
+      case 'billetes':
+        // las dos manos delante de la cara sujetando el abanico
+        for (const [a, s] of [[left, -1], [right, 1]] as const) {
+          a.root.rotation.set(-1.0, -s * 0.3, 0);
+          a.joint.rotation.set(-1.6, -s * 0.1, 0);
+          a.hand.rotation.set(0, s * 1.2, 0);
+        }
+        break;
       case 'quieto':
         left.root.rotation.z = -0.1 - sway;
         right.root.rotation.z = 0.1 + sway;

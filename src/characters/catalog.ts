@@ -6,23 +6,23 @@ import type { CharacterConfig } from './types';
 export const OPTIONS = {
   build: { flaco: 'Flaco', normal: 'Normal', grande: 'Grande' },
   face: { normal: 'Normal', chulo: 'Chulo', feliz: 'Feliz', serio: 'Serio', enfadado: 'Enfadado' },
-  hairStyle: { rapado: 'Rapado', degradado: 'Degradado', rizos: 'Rizos', trenzas: 'Trenzas', calvo: 'Calvo' },
+  hairStyle: { rapado: 'Rapado', degradado: 'Degradado', rizos: 'Rizos', trenzas: 'Trenzas', pinchos: 'Pinchos', calvo: 'Calvo' },
   facialHair: { nada: 'Nada', bigote: 'Bigote', perilla: 'Bigote + perilla', barba: 'Barba' },
   hat: { ninguno: 'Nada', gorra: 'Gorra plana', gorra_atras: 'Gorra hacia atrás', gorro: 'Gorro', pescador: 'Pescador' },
   glasses: { ninguna: 'Nada', oscuras: 'Gafas oscuras', sin_montura: 'Sin montura' },
   top: { camiseta: 'Camiseta oversize', manga_larga: 'Manga larga', sudadera: 'Sudadera', camiseta_sobre_larga: 'Camiseta + manga larga' },
-  print: { ninguno: 'Liso', hamsa: 'Hamsa', hand: 'HAND', gh: 'GH', brokerstars: 'Brokerstars', dolar: '$' },
-  pants: { anchos: 'Vaqueros anchos', rectos: 'Rectos', jorts: 'Jorts' },
+  print: { ninguno: 'Liso', hamsa: 'Hamsa', hand: 'HAND', gh: 'GH', brokerstars: 'Brokerstars', dolar: '$', mono: 'Mono camo' },
+  pants: { anchos: 'Vaqueros anchos', rectos: 'Rectos', pitillo: 'Pitillo con rotos', jorts: 'Jorts' },
   shoes: { bajas: 'Bajas', botas_altas: 'Botas altas' },
   chain: { ninguna: 'Nada', oro: 'Cadena oro', cubana: 'Cubana', colgante: 'Con colgante' },
-  watch: { ninguno: 'Nada', rolex_oro: 'Rolex oro', rolex_plata: 'Rolex plata' },
+  watch: { ninguno: 'Nada', rolex_oro: 'Rolex oro', rolex_plata: 'Rolex plata', digital: 'Digital negro' },
 } as const;
 
 export const COLORS = {
   skin: ['#f1c9a5', '#d9a77e', '#b97f55', '#8d5a3b', '#5e3a26', '#3d2519'],
   hair: ['#111111', '#3b2414', '#6b4423', '#c9a15b', '#d8d8d8'],
   cloth: ['#f2f2f2', '#9a9a9a', '#1c1c1c', '#1d2440', '#7a1f1f', '#3e4a2c', '#c9b48c', '#5a3d6e', '#d9822b', '#2e6f9e'],
-  denim: ['#2f4d7a', '#3e5f8f', '#1f2c45', '#6d87ad', '#c9b48c', '#8a8a8a', '#1c1c1c'],
+  denim: ['#a7b9cc', '#2f4d7a', '#3e5f8f', '#1f2c45', '#6d87ad', '#c9b48c', '#8a8a8a', '#1c1c1c'],
 };
 
 export const DEFAULT_CHARACTER: CharacterConfig = {
@@ -50,6 +50,23 @@ export const DEFAULT_CHARACTER: CharacterConfig = {
 
 // Personajes de ejemplo inspirados en las referencias del proyecto.
 export const PRESETS: CharacterConfig[] = [
+  {
+    ...DEFAULT_CHARACTER,
+    name: 'Cash',
+    skin: COLORS.skin[3],
+    face: 'chulo',
+    hairStyle: 'pinchos',
+    hat: 'ninguno',
+    top: 'camiseta',
+    topColor: '#2a2a2a',
+    print: 'mono',
+    pants: 'pitillo',
+    pantsColor: '#a7b9cc',
+    shoes: 'bajas',
+    shoesColor: '#f2f2f2',
+    chain: 'colgante',
+    watch: 'digital',
+  },
   {
     ...DEFAULT_CHARACTER,
     name: 'Ronin',

@@ -251,6 +251,51 @@ export function printTexture(print: Exclude<Print, 'ninguno'>, ink: string) {
         ctx.font = '900 22px sans-serif';
         ctx.fillText('★', s / 2, s / 2 - 36);
         break;
+      case 'mono': {
+        // círculo de camuflaje con cabeza de mono, en plan parodia
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(s / 2, s / 2 - 8, 46, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.fillStyle = '#8c7a4a';
+        ctx.fillRect(0, 0, s, s);
+        const blobs = ['#4d4a2a', '#c9b98a', '#6b5b33', '#e8dcb5'];
+        for (let i = 0; i < 26; i++) {
+          ctx.fillStyle = blobs[i % blobs.length];
+          ctx.beginPath();
+          const a = i * 2.39;
+          const r = 8 + ((i * 17) % 38);
+          ctx.ellipse(s / 2 + Math.cos(a) * r, s / 2 - 8 + Math.sin(a) * r, 10 + (i % 4) * 3, 6 + (i % 3) * 3, a, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+        ctx.fillStyle = '#141414';
+        ctx.beginPath();
+        ctx.arc(s / 2, s / 2 - 10, 26, 0, Math.PI * 2);
+        ctx.arc(s / 2 - 27, s / 2 - 12, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(s / 2 + 27, s / 2 - 12, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#f4f4f0';
+        ctx.beginPath();
+        ctx.ellipse(s / 2 - 9, s / 2 - 14, 9, 11, 0, 0, Math.PI * 2);
+        ctx.ellipse(s / 2 + 9, s / 2 - 14, 9, 11, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(s / 2, s / 2 + 2, 16, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#141414';
+        ctx.fillRect(s / 2 - 12, s / 2 - 14, 5, 5);
+        ctx.fillRect(s / 2 + 7, s / 2 - 14, 5, 5);
+        ctx.fillRect(s / 2 - 6, s / 2, 3, 3);
+        ctx.fillRect(s / 2 + 3, s / 2, 3, 3);
+        ctx.fillStyle = ink;
+        ctx.font = '900 15px Impact, "Arial Black", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('BROKER APE', s / 2, s - 10);
+        break;
+      }
       case 'dolar':
         ctx.fillStyle = '#2e8b57';
         ctx.beginPath();
@@ -263,6 +308,65 @@ export function printTexture(print: Exclude<Print, 'ninguno'>, ink: string) {
         ctx.fillText('$', s / 2, s / 2 + 2);
         break;
     }
+  });
+}
+
+// Base de tela vaquera en gris que se multiplica por el color del pantalón.
+// Con `ripped` añade rotos con hilos blancos.
+export function denimTexture(ripped: boolean) {
+  const tex = makeTexture('denim:' + ripped, 128, (ctx, s) => {
+    ctx.fillStyle = '#d2d2d2';
+    ctx.fillRect(0, 0, s, s);
+    for (let i = 0; i < 900; i++) {
+      const v = 180 + ((i * 37) % 60);
+      ctx.fillStyle = `rgb(${v},${v},${v})`;
+      ctx.fillRect((i * 53) % s, (i * 29) % s, 2, 1);
+    }
+    // desgaste más claro en el centro de cada pernera
+    const g = ctx.createLinearGradient(0, 0, s, 0);
+    g.addColorStop(0.15, 'rgba(255,255,255,0)');
+    g.addColorStop(0.25, 'rgba(255,255,255,0.35)');
+    g.addColorStop(0.35, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, s, s);
+    if (ripped) {
+      for (const [x, y, w] of [[24, 30, 18], [30, 80, 14], [96, 50, 12]]) {
+        ctx.fillStyle = '#5c5c5c';
+        ctx.fillRect(x - 1, y - 1, w + 2, 10);
+        for (let t = 0; t < 4; t++) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(x, y + t * 2.4, w, 1.3);
+        }
+      }
+    }
+  });
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+// Billete inventado para los fajos (no copia ningún billete real).
+export function billTexture() {
+  return makeTexture('bill', 256, (ctx, s) => {
+    ctx.fillStyle = '#c8d5c0';
+    ctx.fillRect(0, 0, s, s);
+    ctx.strokeStyle = '#4e6b52';
+    ctx.lineWidth = 8;
+    ctx.strokeRect(10, 10, s - 20, s - 20);
+    ctx.fillStyle = '#4e6b52';
+    ctx.font = '900 46px Impact, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.save();
+    ctx.translate(s / 2, s / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('100', 70, -70);
+    ctx.fillText('100', -70, 70);
+    ctx.font = '700 18px Impact, sans-serif';
+    ctx.fillText('BROKERSTARS', 0, 0);
+    ctx.restore();
+    ctx.beginPath();
+    ctx.ellipse(s / 2, s / 2, 34, 44, 0, 0, Math.PI * 2);
+    ctx.stroke();
   });
 }
 

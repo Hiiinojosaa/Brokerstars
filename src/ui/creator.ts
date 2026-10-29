@@ -64,7 +64,7 @@ const TABS: { id: string; label: string; fields: Field[] }[] = [
   },
 ];
 
-const POSES: Record<Pose, string> = { quieto: 'Quieto', pose: 'Pose', brazos_cruzados: 'Brazos cruzados' };
+const POSES: Record<Pose, string> = { quieto: 'Quieto', pose: 'Pose', brazos_cruzados: 'Brazos cruzados', billetes: 'Billetes' };
 
 const STORAGE_KEY = 'brokerstars.character';
 
