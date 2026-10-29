@@ -33,12 +33,19 @@ El lado oscuro tiene un sistema de **riesgo**: investigaciones, redadas, cárcel
 - Relojes, cadenas, ropa, coches, pisos y áticos. Lo que llevas se ve en el personaje.
 
 ## Hoja de ruta
-- [x] **Fase 0:** creador de personajes 3D (este commit)
+- [x] **Fase 0:** creador de personajes 3D y hoja de diseño del Operador
 - [ ] **Fase 1:** oficina explorable en 3D, moverse con WASD o con el táctil, cámara en tercera persona
 - [ ] **Fase 2:** economía básica: dinero, trabajo en la oficina y subir de planta
 - [ ] **Fase 3:** multijugador con colegas (servidor Node + Colyseus)
 - [ ] **Fase 4:** primer negocio completo (trading) y tienda de lujo
 - [ ] **Fase 5:** resto de negocios y el lado oscuro
+
+## Pendiente del personaje (para más adelante)
+Diseño actual: `docs/diseno/hoja-operador.png`.
+- Camisa del pecho más pequeña (ahora parece un babero)
+- Hombros de traje más cuadrados
+- Piernas y rodillas con más forma
+- Cara con más detalle
 
 ## Técnico
 - Three.js + TypeScript + Vite (se juega en el navegador, en el PC y en el móvil).
