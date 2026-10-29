@@ -36,4 +36,4 @@ renderer.setAnimationLoop(() => {
 });
 
 // para pruebas desde la consola / tests automáticos
-Object.assign(window, { brokerstars: { character, camera, controls, retro } });
+Object.assign(window, { brokerstars: { character, camera, controls, retro, scene } });

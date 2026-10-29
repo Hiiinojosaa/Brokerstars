@@ -116,18 +116,21 @@ export function faceTexture(face: Face, facialHair: FacialHair, skin: string, ha
     // ojos
     for (const side of [-1, 1]) {
       const x = s / 2 + side * 56;
+      const wide = face === 'sorprendido';
+      const ry = wide ? 16 : 13;
       ctx.fillStyle = '#fbf8f2';
       ctx.beginPath();
-      ctx.ellipse(x, eyeY, 20, 15, 0, 0, Math.PI * 2);
+      ctx.ellipse(x, eyeY, 19, ry, 0, 0, Math.PI * 2);
       ctx.fill();
-      const look = face === 'chulo' ? -4 : 0;
+      const look = face === 'chulo' ? -4 : face === 'concentrado' ? 3 : 0;
+      const irisR = wide ? 8 : 10;
       ctx.fillStyle = '#4a2c1c';
       ctx.beginPath();
-      ctx.arc(x + look, eyeY + 1, 11, 0, Math.PI * 2);
+      ctx.arc(x + look, eyeY + 1, irisR, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = ink;
       ctx.beginPath();
-      ctx.arc(x + look, eyeY + 1, 5.5, 0, Math.PI * 2);
+      ctx.arc(x + look, eyeY + 1, irisR * 0.5, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
@@ -135,7 +138,7 @@ export function faceTexture(face: Face, facialHair: FacialHair, skin: string, ha
       ctx.fill();
 
       // párpado: medio cerrado si va de chulo o serio
-      const lid = face === 'chulo' ? 9 : face === 'serio' || face === 'enfadado' ? 4 : 0;
+      const lid = { chulo: 9, concentrado: 7, serio: 4, enfadado: 4, preocupado: 2 }[face as string] ?? 0;
       if (lid > 0) {
         ctx.save();
         ctx.beginPath();
@@ -155,9 +158,12 @@ export function faceTexture(face: Face, facialHair: FacialHair, skin: string, ha
       ctx.strokeStyle = hair;
       ctx.lineWidth = 9;
       ctx.beginPath();
-      const tilt = face === 'enfadado' ? 9 : face === 'feliz' ? -4 : face === 'chulo' ? (side === 1 ? -5 : 2) : 0;
-      ctx.moveTo(x - side * 18, eyeY - 30 + tilt);
-      ctx.quadraticCurveTo(x, eyeY - 38, x + side * 22, eyeY - 33 - tilt * 0.3);
+      // tilt baja (o sube si es negativo) la punta interior de la ceja
+      const tilt =
+        { enfadado: 9, concentrado: 6, feliz: -4, preocupado: -9 }[face as string] ?? (face === 'chulo' ? (side === 1 ? -5 : 2) : 0);
+      const lift = face === 'sorprendido' ? -10 : face === 'preocupado' ? -3 : 0;
+      ctx.moveTo(x - side * 18, eyeY - 28 + tilt + lift);
+      ctx.quadraticCurveTo(x, eyeY - 36 + lift, x + side * 22, eyeY - 31 - tilt * 0.3 + lift);
       ctx.stroke();
     }
 
@@ -220,6 +226,23 @@ export function faceTexture(face: Face, facialHair: FacialHair, skin: string, ha
       case 'serio':
         ctx.moveTo(s / 2 - 18, mouthY);
         ctx.lineTo(s / 2 + 18, mouthY);
+        ctx.stroke();
+        break;
+      case 'concentrado':
+        ctx.moveTo(s / 2 - 14, mouthY + 1);
+        ctx.lineTo(s / 2 + 14, mouthY - 1);
+        ctx.stroke();
+        break;
+      case 'preocupado':
+        ctx.moveTo(s / 2 - 18, mouthY + 4);
+        ctx.quadraticCurveTo(s / 2 - 6, mouthY - 2, s / 2, mouthY + 1);
+        ctx.quadraticCurveTo(s / 2 + 8, mouthY + 4, s / 2 + 18, mouthY + 2);
+        ctx.stroke();
+        break;
+      case 'sorprendido':
+        ctx.fillStyle = '#4a1818';
+        ctx.ellipse(s / 2, mouthY + 4, 10, 13, 0, 0, Math.PI * 2);
+        ctx.fill();
         ctx.stroke();
         break;
       case 'enfadado':
@@ -454,6 +477,96 @@ export function shirtTexture(color: string, print: Print, printV: number, printW
       ctx.drawImage(img, w / 2 - pw / 2, (1 - printV) * h - ph / 2, pw, ph);
     }
     grain(ctx, w, h, 0.05, 5);
+  });
+}
+
+// Tela lisa de traje o pantalón de vestir: sin arrugas marcadas, solo un
+// degradado suave hacia los costados y algo de grano.
+export function fabricTexture(color: string) {
+  return makeTexture(`fabric:${color}`, 128, (ctx, w, h) => {
+    ctx.fillStyle = rgba(color, 1);
+    ctx.fillRect(0, 0, w, h);
+    const g = ctx.createLinearGradient(0, 0, w, 0);
+    g.addColorStop(0, 'rgba(0,0,0,0.1)');
+    g.addColorStop(0.25, 'rgba(0,0,0,0)');
+    g.addColorStop(0.5, 'rgba(255,255,255,0.04)');
+    g.addColorStop(0.75, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,0.1)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    grain(ctx, w, h, 0.04, 31);
+  });
+}
+
+// Chaqueta de traje: la tela de la camisa de base y encima, pintados, la
+// camisa blanca en V, las solapas, la corbata, los botones y los bolsillos.
+// `around(y)` da el contorno del torso a cada altura para pasar de metros a
+// píxeles sin que nada se deforme.
+export function jacketTexture(
+  color: string,
+  shirtColor: string,
+  tieColor: string | null,
+  geo: { y0: number; y1: number; around: (y: number) => number; key: string },
+) {
+  return makeTexture(`jacket:${color}:${shirtColor}:${tieColor}:${geo.key}`, 256, (ctx, w, h) => {
+    const base = fabricTexture(color).image as HTMLCanvasElement;
+    ctx.drawImage(base, 0, 0, w, h);
+    const rowY = (py: number) => geo.y0 + (1 - py / h) * (geo.y1 - geo.y0);
+    const pyOf = (y: number) => Math.round((1 - (y - geo.y0) / (geo.y1 - geo.y0)) * h);
+    const px = (meters: number, y: number) => (meters / geo.around(y)) * w;
+    const vBottom = geo.y1 - 0.27;
+    for (let py = 0; py < h; py++) {
+      const y = rowY(py);
+      if (y < vBottom) continue;
+      const t = (y - vBottom) / (geo.y1 - vBottom);
+      // la V se abre hacia el cuello, sin pasar de un tercio del contorno
+      const half = Math.min(px(0.01 + 0.05 * t, y), w * 0.16);
+      const lapel = px(0.036, y);
+      // camisa
+      ctx.fillStyle = rgba(shirtColor, 1);
+      ctx.fillRect(w / 2 - half, py, half * 2, 1);
+      // sombra de la camisa junto a las solapas
+      ctx.fillStyle = rgba(shirtColor, 0.8);
+      ctx.fillRect(w / 2 - half, py, 2, 1);
+      ctx.fillRect(w / 2 + half - 2, py, 2, 1);
+      // solapas: un poco más oscuras con el filo claro
+      ctx.fillStyle = rgba(color, 0.82);
+      ctx.fillRect(w / 2 - half - lapel, py, lapel, 1);
+      ctx.fillRect(w / 2 + half, py, lapel, 1);
+      ctx.fillStyle = rgba(color, 1.3);
+      ctx.fillRect(w / 2 - half - 1, py, 1, 1);
+      ctx.fillRect(w / 2 + half, py, 1, 1);
+      if (tieColor) {
+        const tw = px(y > geo.y1 - 0.035 ? 0.024 : 0.017 + 0.006 * (1 - t), y);
+        ctx.fillStyle = rgba(tieColor, y > geo.y1 - 0.035 ? 0.85 : 1);
+        ctx.fillRect(w / 2 - tw, py, tw * 2, 1);
+      }
+    }
+    // cierre de la chaqueta y botones
+    const yb = pyOf(vBottom);
+    ctx.fillStyle = rgba(color, 0.55);
+    ctx.fillRect(w / 2 - 1, yb, 2, h - yb);
+    for (const y of [vBottom - 0.04, vBottom - 0.15]) {
+      const r = Math.max(2, px(0.011, y));
+      ctx.fillStyle = '#1d1d1f';
+      ctx.beginPath();
+      ctx.arc(w / 2 + 3, pyOf(y), r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // bolsillos con solapa y bolsillo de pecho
+    for (const [x, y, len] of [[-0.12, geo.y0 + 0.17, 0.1], [0.12, geo.y0 + 0.17, 0.1], [0.12, geo.y1 - 0.2, 0.075]] as const) {
+      const cx = w / 2 + px(x, y);
+      const lw = px(len, y);
+      ctx.fillStyle = rgba(color, 0.6);
+      ctx.fillRect(cx - lw / 2, pyOf(y), lw, 2);
+      ctx.fillStyle = rgba(color, 1.25);
+      ctx.fillRect(cx - lw / 2, pyOf(y) - 1, lw, 1);
+    }
+    // abertura trasera
+    const vent = pyOf(geo.y0 + 0.16);
+    ctx.fillStyle = rgba(color, 0.55);
+    ctx.fillRect(0, vent, 2, h - vent);
+    ctx.fillRect(w - 2, vent, 2, h - vent);
   });
 }
 

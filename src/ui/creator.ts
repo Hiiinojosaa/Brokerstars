@@ -40,7 +40,8 @@ const TABS: { id: string; label: string; fields: Field[] }[] = [
     fields: [
       { kind: 'option', key: 'top', label: 'Prenda' },
       { kind: 'color', key: 'topColor', label: 'Color', palette: 'cloth' },
-      { kind: 'color', key: 'sleeveColor', label: 'Color manga larga', palette: 'cloth' },
+      { kind: 'color', key: 'sleeveColor', label: 'Color camisa / manga larga', palette: 'cloth' },
+      { kind: 'option', key: 'tie', label: 'Corbata' },
       { kind: 'option', key: 'print', label: 'Estampado' },
     ],
   },
@@ -64,7 +65,7 @@ const TABS: { id: string; label: string; fields: Field[] }[] = [
   },
 ];
 
-const POSES: Record<Pose, string> = { quieto: 'Quieto', pose: 'Pose', brazos_cruzados: 'Brazos cruzados', billetes: 'Billetes' };
+const POSES: Record<Pose, string> = { quieto: 'Quieto', presentacion: 'Pose A', pose: 'Pose', brazos_cruzados: 'Brazos cruzados', billetes: 'Billetes' };
 
 const STORAGE_KEY = 'brokerstars.character';
 
@@ -105,6 +106,7 @@ function randomCharacter(name: string): CharacterConfig {
     shoesColor: pick(COLORS.cloth),
     chain: opt('chain'),
     watch: opt('watch'),
+    tie: opt('tie'),
   };
 }
 
