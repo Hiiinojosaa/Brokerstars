@@ -112,8 +112,10 @@ tiempo fuera). Se baja con abogado, sobornos al político o esperando.
 - Fichas compradas en la caja con dinero del juego. **Nunca dinero real.**
 - **Ruleta** europea, **blackjack**, **tragaperras** temáticas.
 - **Póker Texas Hold'em entre amigos:** mesas públicas y privadas con contraseña.
-- **Apuestas deportivas:** partidos históricos reales con nombres inventados,
-  que se ven *en directo* en las pantallas resumidos en 5 minutos. Apuestas a
+- **Apuestas deportivas:** partidos históricos reales de equipos reales, que se
+  ven *en directo* en las pantallas resumidos en 5 minutos. Los nombres de los
+  equipos salen de un archivo de datos (para publicar, revisar licencias de
+  nombres y escudos). Apuestas a
   ganador, goles y apuestas en vivo durante el partido.
 - **Bar** (consumibles), **sala VIP High Roller** (solo con estatus) y
   **escenario** para las fiestas del promotor.
@@ -155,8 +157,10 @@ Mapa de la torre y Cámara (fotos para presumir).
 ## 10. Hoja de ruta
 - [x] **Fase 0:** creador de personajes 3D y hojas de diseño
 - [x] **Diseño:** oficina Planta 1 en 3D, planos de la torre y de cada planta
-- [ ] **Fase 1:** moverse por la torre (WASD y táctil), cámara en tercera
-  persona, ascensor entre plantas, sentarse en un puesto
+- [x] **Demo 0.1:** moverse por la torre (WASD y táctil), cámara en tercera
+  persona, ascensor, Planta 0 (banco, cajeros, MegaMart) y Planta 1 (oficina),
+  sentarse en un puesto y vender por teléfono, dinero, inventario, microondas,
+  hambre y energía, objetivos de tutorial
 - [ ] **Fase 2:** banco, efectivo/banco/cripto, inventario, MegaMart, hambre y energía
 - [ ] **Fase 3:** multijugador (servidor Node + Colyseus) y chat de voz de proximidad
 - [ ] **Fase 4:** primeros roles jugables: broker y dropshipper
@@ -166,7 +170,7 @@ Mapa de la torre y Cámara (fotos para presumir).
 
 ## 11. Diseño visual
 - Personaje: `docs/diseno/hoja-operador.png`
-- Oficina en 3D (Planta 1, call center original): `docs/diseno/hoja-oficina.png` · se ve en `office.html`
+- Oficina en 3D (Planta 1, call center original): `docs/diseno/hoja-oficina.png`
 - Planos de la torre y sus plantas: `docs/diseno/torre-brokerstars.png`
 - Cómo se mueve el dinero entre roles: `docs/diseno/economia.png`
 - Primeros planos por negocio (referencia): `docs/diseno/planos-lugares.png`

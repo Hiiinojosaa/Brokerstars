@@ -235,7 +235,17 @@ export function createCreator(
       }
       setTimeout(() => (exportBtn.textContent = 'Copiar JSON'), 1500);
     };
-    actions.append(save, exportBtn);
+    const play = el('button', 'primary', '▶ Jugar') as HTMLButtonElement;
+    play.onclick = () => {
+      // se guarda el personaje y se entra a la torre con él
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+      } catch {
+        // sin almacenamiento se juega con el personaje por defecto
+      }
+      location.href = './index.html';
+    };
+    actions.append(play, save, exportBtn);
     root.append(actions);
   }
 

@@ -294,6 +294,9 @@ export class Character {
   private cash = new THREE.Group();
   private time = Math.random() * 10;
   pose: Pose = 'quieto';
+  // 0 = quieto, 1 = andando, 2 = corriendo; lo pone el controlador del jugador
+  walk = 0;
+  private walkPhase = 0;
 
   constructor(public config: CharacterConfig) {
     this.build();
@@ -786,5 +789,27 @@ export class Character {
     this.head.rotation.y = Math.sin(this.time * 0.6) * 0.08;
     this.head.rotation.x = Math.sin(this.time * 0.9) * 0.02;
     this.applyPose(breath * 0.02);
+    if (this.walk > 0.01 && this.pose === 'quieto') this.applyWalk(dt);
+    else this.body.position.y = this.pose === 'sentado' ? this.body.position.y : 0;
+  }
+
+  // ciclo de andar: piernas y brazos en oposición y un pequeño rebote
+  private applyWalk(dt: number) {
+    if (!this.arms) return;
+    const run = Math.min(1, Math.max(0, this.walk - 1));
+    this.walkPhase += dt * (7.5 + run * 3.5);
+    const swing = 0.45 + run * 0.35;
+    const p = this.walkPhase;
+    this.legs.forEach((leg, i) => {
+      const s = Math.sin(p + i * Math.PI);
+      leg.root.rotation.x = s * swing;
+      // la rodilla se dobla cuando la pierna va hacia atrás
+      leg.joint.rotation.x = Math.max(0, Math.sin(p + i * Math.PI - 1.2)) * (0.7 + run * 0.6);
+    });
+    const { left, right } = this.arms;
+    left.root.rotation.x = Math.sin(p) * swing * 0.8;
+    right.root.rotation.x = -Math.sin(p) * swing * 0.8;
+    left.joint.rotation.x = right.joint.rotation.x = -0.3 - run * 0.7;
+    this.body.position.y = Math.abs(Math.cos(p)) * (0.025 + run * 0.02);
   }
 }

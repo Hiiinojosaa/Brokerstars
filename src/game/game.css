@@ -1,0 +1,72 @@
+:root {
+  --panel: rgba(16, 14, 24, 0.9);
+  --line: rgba(255, 255, 255, 0.12);
+  --text: #f3eef7;
+  --muted: #a49cb3;
+  --accent: #f2c14e;
+  --ok: #2ecc71;
+  --bad: #e74c3c;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0f0d16; color: var(--text); font-family: Inter, system-ui, sans-serif; }
+#game { position: fixed; inset: 0; }
+#game canvas { display: block; touch-action: none; }
+#ui { position: fixed; inset: 0; pointer-events: none; }
+/* la interfaz no bloquea el ratón salvo en lo que se puede pulsar */
+.overlay.open, .stick, .touch-buttons, .menu-link { pointer-events: auto; }
+.hud-top { position: absolute; top: 12px; left: 12px; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.floor-name { font: 800 13px Inter, sans-serif; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); text-shadow: 0 1px 3px #000; }
+.hud-money { display: flex; gap: 8px; }
+.money { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; font: 800 18px Inter, sans-serif; min-width: 120px; }
+.money span { display: block; font: 600 10px Inter, sans-serif; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.hud-needs { display: flex; flex-direction: column; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; width: 248px; }
+.need { display: grid; grid-template-columns: 60px 1fr; align-items: center; font: 600 12px Inter, sans-serif; }
+.bar { height: 8px; background: rgba(255,255,255,0.1); border-radius: 99px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 99px; transition: width .3s; }
+.hud-objectives { position: absolute; top: 12px; right: 12px; width: 290px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; pointer-events: none; }
+.obj-title { font: 800 12px Inter, sans-serif; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+.objectives { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.5; }
+.objectives li.done { color: var(--muted); text-decoration: line-through; }
+.prompt { position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--accent); border-radius: 99px; padding: 10px 18px; font: 700 15px Inter, sans-serif; opacity: 0; transition: opacity .15s; pointer-events: none; white-space: nowrap; }
+.toasts { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
+.toast { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; font: 600 14px Inter, sans-serif; transition: opacity .4s, transform .4s; }
+.toast.ok { border-color: var(--ok); }
+.toast.bad { border-color: var(--bad); }
+.toast.out { opacity: 0; transform: translateY(-8px); }
+.help { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 12px; color: rgba(255,255,255,.7); text-shadow: 0 1px 2px #000; pointer-events: none; white-space: nowrap; }
+.overlay { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.35); }
+.overlay.open { display: flex; }
+.panel { width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+.panel-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.panel-head h2 { margin: 0; font: 800 18px Inter, sans-serif; }
+.panel-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 12px; font-size: 14px; }
+.close { background: none; border: 0; color: var(--muted); font-size: 18px; cursor: pointer; }
+.btn { background: var(--accent); color: #1a1405; border: 0; border-radius: 10px; padding: 10px 14px; font: 800 14px Inter, sans-serif; cursor: pointer; }
+.btn.ghost { background: rgba(255,255,255,.08); color: var(--text); }
+.btn:disabled { opacity: .4; cursor: default; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.muted { color: var(--muted); }
+.big { font: 800 28px Inter, sans-serif; }
+.items { display: flex; flex-direction: column; gap: 6px; }
+.item { display: grid; grid-template-columns: 30px 1fr auto auto; gap: 10px; align-items: center; background: rgba(255,255,255,.04); border-radius: 10px; padding: 8px 10px; }
+.item .icon { font-size: 22px; }
+.choice { text-align: left; background: rgba(255,255,255,.06); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: 600 14px Inter, sans-serif; cursor: pointer; }
+.choice:hover { border-color: var(--accent); }
+.bubble { background: #26324a; border-radius: 12px 12px 12px 2px; padding: 10px 12px; }
+.screen { white-space: pre-line; background: #0f1620; border: 1px solid #2a3a50; border-radius: 10px; padding: 12px; font-family: ui-monospace, monospace; color: #9fb3c8; }
+.floors { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.floors .btn { text-align: left; display: flex; justify-content: space-between; }
+.fade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .45s; }
+.fade.on { opacity: 1; }
+.stick { position: absolute; left: 28px; bottom: 40px; width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.2); touch-action: none; }
+.stick-knob { position: absolute; left: 35px; top: 35px; width: 50px; height: 50px; border-radius: 50%; background: rgba(242,193,78,.8); }
+.touch-buttons { position: absolute; right: 24px; bottom: 40px; display: flex; gap: 12px; }
+.touch-buttons button { width: 64px; height: 64px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); background: rgba(16,14,24,.7); color: #fff; font: 800 20px Inter, sans-serif; touch-action: none; }
+.menu-link { position: absolute; bottom: 10px; right: 12px; color: var(--muted); font-size: 12px; }
+@media (max-width: 760px) {
+  .hud-objectives { width: 210px; font-size: 12px; padding: 8px 10px; }
+  .objectives { font-size: 11px; }
+  .money { min-width: 90px; font-size: 15px; }
+  .hud-needs { width: 190px; }
+  .help { display: none; }
+}

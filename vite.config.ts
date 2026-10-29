@@ -7,7 +7,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
-        office: resolve(__dirname, 'office.html'),
+        creador: resolve(__dirname, 'creador.html'),
       },
     },
   },

@@ -3,6 +3,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { COLORS, PRESETS } from '../characters/catalog';
 import { Character } from '../characters/Character';
 import type { CharacterConfig } from '../characters/types';
+import { rect, type Floor, type Interactable, type Rect } from '../game/world';
 import {
   carpetTexture,
   clockTexture,
@@ -14,7 +15,7 @@ import {
   whiteboardTexture,
 } from './officeTextures';
 
-// Planta 1 de Brokerstars: el call center donde empieza el jugador.
+// Planta 1 de Brokerstars: el call center de los Negocios.
 // Sala de 18 x 12 m: dos bloques de puestos con mamparas azules, ventanas
 // al fondo con el sol de la tarde, pizarra a la izquierda, despacho del
 // supervisor y ascensor a la derecha. El suelo es y=0 y la sala está
@@ -22,7 +23,7 @@ import {
 
 export const ROOM = { w: 18, d: 12, h: 3 };
 
-const mats = {
+export const mats = {
   wall: new THREE.MeshStandardMaterial({ color: '#d8c3a0', roughness: 0.9 }),
   ceiling: new THREE.MeshStandardMaterial({ color: '#e9e4da', roughness: 1, emissive: '#2a2620' }),
   deskTop: new THREE.MeshStandardMaterial({ color: '#eeeae2', roughness: 0.5 }),
@@ -40,7 +41,7 @@ const mats = {
   white: new THREE.MeshStandardMaterial({ color: '#f4f4f2', roughness: 0.4 }),
 };
 
-function box(w: number, h: number, d: number, m: THREE.Material, x = 0, y = 0, z = 0, r = 0) {
+export function box(w: number, h: number, d: number, m: THREE.Material, x = 0, y = 0, z = 0, r = 0) {
   const geo = r > 0 ? new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2, h / 2, d / 2) * 0.99) : new THREE.BoxGeometry(w, h, d);
   const mesh = new THREE.Mesh(geo, m);
   mesh.position.set(x, y, z);
@@ -49,7 +50,7 @@ function box(w: number, h: number, d: number, m: THREE.Material, x = 0, y = 0, z
   return mesh;
 }
 
-function cyl(r: number, h: number, m: THREE.Material, x = 0, y = 0, z = 0, seg = 16) {
+export function cyl(r: number, h: number, m: THREE.Material, x = 0, y = 0, z = 0, seg = 16) {
   const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg), m);
   mesh.position.set(x, y, z);
   mesh.castShadow = true;
@@ -58,7 +59,7 @@ function cyl(r: number, h: number, m: THREE.Material, x = 0, y = 0, z = 0, seg =
 }
 
 // Material que brilla con su propia textura (pantallas, ventanas).
-function glow(map: THREE.Texture, intensity = 1) {
+export function glow(map: THREE.Texture, intensity = 1) {
   return new THREE.MeshStandardMaterial({ map, emissive: '#ffffff', emissiveMap: map, emissiveIntensity: intensity, roughness: 0.3 });
 }
 
@@ -76,7 +77,7 @@ function chair() {
   return g;
 }
 
-function plant(scale = 1) {
+export function plant(scale = 1) {
   const g = new THREE.Group();
   g.add(cyl(0.18 * scale, 0.35 * scale, mats.pot, 0, 0.175 * scale, 0));
   for (let i = 0; i < 7; i++) {
@@ -149,7 +150,9 @@ function randomOperator(i: number): CharacterConfig {
 }
 
 // Bloque de puestos enfrentados con una mampara azul en medio.
+// Devuelve el grupo y los asientos libres (en coordenadas del bloque).
 function deskBlock(seats: number, operators: Character[], startIndex: number, occupied: (i: number) => boolean) {
+  const free: { x: number; z: number; rotY: number }[] = [];
   const g = new THREE.Group();
   const len = seats * 1.8;
   // mampara central con marco de aluminio
@@ -178,18 +181,21 @@ function deskBlock(seats: number, operators: Character[], startIndex: number, oc
         op.root.rotation.y = side === 1 ? Math.PI : 0;
         g.add(op.root);
         operators.push(op);
+      } else {
+        free.push({ x, z: side * 1.25, rotY: side === 1 ? Math.PI : 0 });
       }
       index++;
     }
   }
-  return g;
+  return { group: g, free, length: len };
 }
 
-export function createOffice(scene: THREE.Scene) {
+export function createOffice(): Floor {
   const { w, d, h } = ROOM;
   const operators: Character[] = [];
   const office = new THREE.Group();
-  scene.add(office);
+  const colliders: Rect[] = [];
+  const interactables: Interactable[] = [];
 
   // suelo y techo
   const carpet = carpetTexture();
@@ -246,12 +252,15 @@ export function createOffice(scene: THREE.Scene) {
   }
 
   // bloques de puestos
-  const blockA = deskBlock(4, operators, 0, (i) => i % 4 !== 3);
-  blockA.position.set(-2, 0, -2.6);
-  office.add(blockA);
-  const blockB = deskBlock(4, operators, 8, (i) => i % 3 !== 1);
-  blockB.position.set(-2, 0, 1.3);
-  office.add(blockB);
+  for (const [bz, start, occupied] of [[-2.6, 0, (i: number) => i % 4 !== 3], [1.3, 8, (i: number) => i % 3 !== 1]] as const) {
+    const block = deskBlock(4, operators, start, occupied);
+    block.group.position.set(-2, 0, bz);
+    office.add(block.group);
+    colliders.push(rect(-2, bz, block.length + 0.1, 1.7));
+    for (const seat of block.free) {
+      interactables.push({ kind: 'seat', label: 'Sentarse a trabajar', x: seat.x - 2, z: seat.z + bz, radius: 0.8, rotY: seat.rotY });
+    }
+  }
 
   // pared izquierda: pizarra, reloj, fuente de agua y plantas
   const board = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.375), new THREE.MeshStandardMaterial({ map: whiteboardTexture(), roughness: 0.4 }));
@@ -268,16 +277,39 @@ export function createOffice(scene: THREE.Scene) {
   cooler.add(cyl(0.15, 0.4, new THREE.MeshPhysicalMaterial({ color: '#7fb8e6', transmission: 0.6, transparent: true, opacity: 0.7, roughness: 0.1 }), 0, 1.2, 0));
   cooler.position.set(-w / 2 + 0.4, 0, 2.8);
   office.add(cooler);
+  colliders.push(rect(-w / 2 + 0.4, 2.8, 0.5, 0.5));
+
+  // rincón de cocina: encimera con microondas y cafetera
+  const kz = 4.6;
+  office.add(box(0.65, 0.9, 1.9, mats.white, -w / 2 + 0.33, 0.45, kz, 0.01));
+  office.add(box(0.7, 0.04, 1.95, mats.wood, -w / 2 + 0.35, 0.92, kz));
+  const micro = new THREE.Group();
+  micro.add(box(0.42, 0.26, 0.5, mats.white, 0, 0.13, 0, 0.02));
+  micro.add(box(0.01, 0.2, 0.32, mats.plastic, 0.215, 0.13, -0.05));
+  micro.add(box(0.01, 0.2, 0.1, new THREE.MeshStandardMaterial({ color: '#2b2f36', emissive: '#55d68a', emissiveIntensity: 0.25 }), 0.215, 0.13, 0.19));
+  micro.position.set(-w / 2 + 0.33, 0.94, kz - 0.45);
+  office.add(micro);
+  const coffee = new THREE.Group();
+  coffee.add(box(0.36, 0.45, 0.34, mats.plastic, 0, 0.225, 0, 0.03));
+  coffee.add(cyl(0.05, 0.08, mats.white, 0.12, 0.1, 0));
+  coffee.position.set(-w / 2 + 0.3, 0.94, kz + 0.5);
+  office.add(coffee);
+  colliders.push(rect(-w / 2 + 0.35, kz, 0.75, 2));
+  interactables.push({ kind: 'microwave', label: 'Usar el microondas', x: -w / 2 + 1.1, z: kz - 0.45, radius: 0.9 });
+  interactables.push({ kind: 'coffee', label: 'Café de máquina (1 €)', x: -w / 2 + 1.1, z: kz + 0.5, radius: 0.9 });
   for (const [px, pz, sc] of [[-w / 2 + 0.5, -5.3, 1.3], [-w / 2 + 0.5, 4.8, 1.1], [w / 2 - 0.6, 5.2, 1.2], [3.6, -5.3, 1]] as const) {
     const p = plant(sc);
     p.position.set(px, 0, pz);
     office.add(p);
+    colliders.push(rect(px, pz, 0.45, 0.45));
   }
 
   // despacho del supervisor: esquina de cristal al fondo a la derecha
   const ox = 5.2;
   const oz = -2.2;
   office.add(box(0.06, h, oz + d / 2, mats.glass, ox, h / 2, (oz - d / 2) / 2));
+  colliders.push(rect(ox, (oz - d / 2) / 2, 0.15, oz + d / 2));
+  colliders.push(rect((ox + w / 2 - 1.1) / 2, oz, w / 2 - 1.1 - ox, 0.15));
   // el hueco de 1,1 m junto a la pared derecha es la puerta
   office.add(box(w / 2 - 1.1 - ox, h, 0.06, mats.glass, (ox + w / 2 - 1.1) / 2, h / 2, oz));
   office.add(box(0.08, h, 0.08, mats.frame, ox, h / 2, oz));
@@ -299,6 +331,7 @@ export function createOffice(scene: THREE.Scene) {
   bossChair.rotation.y = Math.PI;
   boss.add(bossChair);
   boss.position.set(7.1, 0, -4.4);
+  colliders.push(rect(7.1, -4.4, 1.9, 0.95));
   boss.rotation.y = Math.PI;
   office.add(boss);
   const bossSign = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.375), new THREE.MeshStandardMaterial({ map: signTexture('SUPERVISOR', 'Sr. Ruiz'), roughness: 0.4 }));
@@ -318,7 +351,7 @@ export function createOffice(scene: THREE.Scene) {
   office.add(cyl(0.025, 0.02, new THREE.MeshStandardMaterial({ color: '#f2c14e', emissive: '#f2c14e', emissiveIntensity: 1.5 }), w / 2 - 0.06, 1.25, ez - 1.15).rotateZ(Math.PI / 2));
 
   // luces: sol de tarde entrando por las ventanas, relleno cálido y techo
-  scene.add(new THREE.HemisphereLight('#ffe6c7', '#4a4250', 0.9));
+  office.add(new THREE.HemisphereLight('#ffe6c7', '#4a4250', 0.9));
   const sun = new THREE.DirectionalLight('#ffbe7a', 4.5);
   sun.position.set(-5, 5.5, -16);
   sun.target.position.set(1, 0, 1);
@@ -328,12 +361,26 @@ export function createOffice(scene: THREE.Scene) {
   sc.left = -12; sc.right = 12; sc.top = 10; sc.bottom = -10; sc.near = 1; sc.far = 40;
   sun.shadow.bias = -0.0004;
   sun.shadow.normalBias = 0.02;
-  scene.add(sun, sun.target);
+  office.add(sun, sun.target);
   for (let lx = -6; lx <= 6; lx += 6) {
     const p = new THREE.PointLight('#fff1dc', 10, 10, 1.4);
     p.position.set(lx, h - 0.3, 0);
-    scene.add(p);
+    office.add(p);
   }
 
-  return { office, operators };
+  interactables.push({ kind: 'elevator', label: 'Llamar al ascensor', x: w / 2 - 0.9, z: ez, radius: 1.1 });
+
+  return {
+    level: 1,
+    name: 'Planta 1 · Los Negocios',
+    group: office,
+    bounds: rect(0, 0, w - 0.5, d - 0.5),
+    height: h,
+    colliders,
+    interactables,
+    arrival: { x: w / 2 - 1.2, z: ez, rotY: -Math.PI / 2 },
+    update: (dt) => {
+      for (const op of operators) op.update(dt);
+    },
+  };
 }
