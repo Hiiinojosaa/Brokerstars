@@ -21,6 +21,8 @@ export class Player {
   pitch = 0.32;
   dist = 3.4;
   seated = false;
+  // empujando el carro de la compra se va más despacio
+  slow = false;
 
   constructor(config: CharacterConfig, private camera: THREE.PerspectiveCamera) {
     this.character = new Character(config);
@@ -68,7 +70,7 @@ export class Player {
     if (!this.seated) {
       const m = input.move();
       const amount = Math.hypot(m.x, m.y);
-      const target = amount > 0.05 ? (m.run ? RUN : WALK) * amount : 0;
+      const target = amount > 0.05 ? (m.run && !this.slow ? RUN : WALK * (this.slow ? 0.75 : 1)) * amount : 0;
       this.speed += (target - this.speed) * Math.min(1, dt * 10);
       if (amount > 0.05) {
         // adelante = desde la cámara hacia el jugador
@@ -93,10 +95,20 @@ export class Player {
   }
 
   private collide(floor: Floor) {
-    const b = floor.bounds;
-    this.pos.x = THREE.MathUtils.clamp(this.pos.x, b.minX + RADIUS, b.maxX - RADIUS);
-    this.pos.z = THREE.MathUtils.clamp(this.pos.z, b.minZ + RADIUS, b.maxZ - RADIUS);
-    for (const r of floor.colliders) {
+    // dentro de alguna zona caminable; si no, a su punto más cercano
+    let best: { x: number; z: number; d: number } | null = null;
+    for (const w of floor.walkable) {
+      const x = THREE.MathUtils.clamp(this.pos.x, w.minX + RADIUS, w.maxX - RADIUS);
+      const z = THREE.MathUtils.clamp(this.pos.z, w.minZ + RADIUS, w.maxZ - RADIUS);
+      const d = (x - this.pos.x) ** 2 + (z - this.pos.z) ** 2;
+      if (!best || d < best.d) best = { x, z, d };
+      if (d === 0) break;
+    }
+    if (best) {
+      this.pos.x = best.x;
+      this.pos.z = best.z;
+    }
+    for (const r of [...floor.colliders, ...(floor.dynamicColliders?.() ?? [])]) {
       const cx = THREE.MathUtils.clamp(this.pos.x, r.minX, r.maxX);
       const cz = THREE.MathUtils.clamp(this.pos.z, r.minZ, r.maxZ);
       const dx = this.pos.x - cx, dz = this.pos.z - cz;
@@ -139,6 +151,12 @@ export class Player {
     limit(target.z, dir.z, b.minZ + 0.15, b.maxZ - 0.15);
     limit(target.y, dir.y, 0.4, floor.height - 0.2);
     cam.copy(target).addScaledVector(dir, Math.max(0.25, t));
+    // la cámara no puede quedar fuera de las zonas por las que se anda (por
+    // ejemplo detrás de la pared de la cabina del ascensor): se acerca
+    const ok = (x: number, z: number) => floor.walkable.some((w) => x >= w.minX - 0.2 && x <= w.maxX + 0.2 && z >= w.minZ - 0.2 && z <= w.maxZ + 0.2);
+    let k = 1;
+    while (k > 0.15 && !ok(target.x + (cam.x - target.x) * k, target.z + (cam.z - target.z) * k)) k -= 0.08;
+    cam.set(target.x + (cam.x - target.x) * k, target.y + (cam.y - target.y) * Math.max(k, 0.5), target.z + (cam.z - target.z) * k);
     this.camera.position.lerp(cam, 0.35);
     this.camera.lookAt(target);
   }

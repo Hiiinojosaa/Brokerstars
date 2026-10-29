@@ -1,4 +1,4 @@
-import { OBJECTIVES, type GameState } from './state';
+import { EFFECTS, type GameState } from './state';
 
 // Interfaz del juego por encima del 3D: dinero, necesidades, objetivos,
 // el aviso de "pulsa E", mensajes y ventanas (cajero, tienda, PC…).
@@ -25,7 +25,8 @@ export class Hud {
   private floor = el('div', 'floor-name');
   private hunger = el('div', 'bar-fill');
   private energy = el('div', 'bar-fill');
-  private objectives = el('ol', 'objectives');
+  private objective = el('div', 'objective');
+  private effects = el('div', 'effects');
   private prompt = el('div', 'prompt');
   private toasts = el('div', 'toasts');
   private overlay = el('div', 'overlay');
@@ -45,10 +46,10 @@ export class Hud {
       row.append(el('span', '', label), bar);
       needs.append(row);
     }
-    top.append(this.floor, money, needs);
+    top.append(this.floor, money, needs, this.effects);
     const obj = el('div', 'hud-objectives');
-    obj.append(el('div', 'obj-title', 'Objetivos'), this.objectives);
-    const help = el('div', 'help', 'WASD moverse · Shift correr · ratón girar cámara · E interactuar · I inventario');
+    obj.append(el('div', 'obj-title', 'Objetivo'), this.objective);
+    const help = el('div', 'help', 'WASD moverse · Shift correr · ratón girar cámara · E interactuar · I inventario · M móvil');
     root.append(top, obj, this.prompt, this.toasts, this.overlay, this.fadeEl, help);
     state.onChange(() => this.refresh());
     this.refresh();
@@ -64,8 +65,13 @@ export class Hud {
     this.bank.innerHTML = `<span>Banco</span>${d.hasAccount ? euros(d.bank) : 'sin cuenta'}`;
     this.hunger.style.width = `${d.hunger}%`;
     this.energy.style.width = `${d.energy}%`;
-    const html = OBJECTIVES.map((o) => `<li class="${d.done[o.id] ? 'done' : ''}">${o.text}</li>`).join('');
-    if (this.objectives.innerHTML !== html) this.objectives.innerHTML = html;
+    const obj = this.state.currentObjective();
+    const text = obj ? obj.text : 'Haz dinero y gástatelo 😎';
+    if (this.objective.textContent !== text) this.objective.textContent = text;
+    const heat = Math.round(d.heat);
+    const fx = [heat ? `🚔 ${'★'.repeat(heat)}${'☆'.repeat(5 - heat)}` : '', ...this.state.activeEffects().map(([e]) => `${EFFECTS[e].icon} ${EFFECTS[e].name}`)].filter(Boolean).join('  ');
+    if (this.effects.textContent !== fx) this.effects.textContent = fx;
+    this.effects.style.display = fx ? '' : 'none';
   }
 
   showPrompt(text: string | null) {

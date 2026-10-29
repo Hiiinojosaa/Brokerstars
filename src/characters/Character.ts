@@ -653,7 +653,7 @@ export class Character {
       root.rotation.order = joint.rotation.order = 'YXZ';
       const upperMat = longSleeve ? sleeve : skin;
       root.add(muscle(UPPER_ARM, upperLen, upperMat, k, suit ? 0.008 : longSleeve ? 0.004 : 0));
-      root.add(at(ball((suit ? 0.07 : 0.066) * k, longSleeve ? sleeve : top, 1, 0.8, 1), -side * 0.018, -0.02, 0)); // hombro
+      root.add(at(ball((suit ? 0.06 : 0.056) * k, longSleeve ? sleeve : top, 1, 0.72, 0.95), -side * 0.032, -0.04, 0)); // hombro, discreto
       if (!longSleeve || c.top === 'camiseta_sobre_larga') root.add(at(limb(0.072 * k, 0.08 * k, 0.17, top), 0, -0.08, 0)); // manga corta
       const foreMat = longSleeve ? sleeve : skin;
       if (suit) {

@@ -12,7 +12,7 @@ export class Input {
 
   constructor(canvas: HTMLElement, root: HTMLElement) {
     window.addEventListener('keydown', (e) => {
-      if ((e.target as HTMLElement).tagName === 'INPUT') return;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) return;
       const k = e.key.toLowerCase();
       if (!this.keys.has(k)) this.emit(k);
       this.keys.add(k);

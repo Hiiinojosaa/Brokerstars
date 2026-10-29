@@ -161,7 +161,18 @@ Mapa de la torre y Cámara (fotos para presumir).
   persona, ascensor, Planta 0 (banco, cajeros, MegaMart) y Planta 1 (oficina),
   sentarse en un puesto y vender por teléfono, dinero, inventario, microondas,
   hambre y energía, objetivos de tutorial
-- [ ] **Fase 2:** banco, efectivo/banco/cripto, inventario, MegaMart, hambre y energía
+- [x] **Demo 0.2:** las 4 plantas jugables. Planta 0 con banco (cuenta, tarjeta,
+  PIN, cajeros para sacar e ingresar en cualquier cuenta, 3 préstamos con
+  interés, recargo y embargo) y MegaMart aparte con carro y caja. Ascensor con
+  puertas y botonera. Planta 1 tipo Wall Street: CRM con leads, marcar y
+  vender a un cliente con IA, trading con velas y apalancamiento,
+  dropshipping con ventas al móvil, supervisor que paga comisiones, sala de
+  reuniones y cocina. Planta 2: PC con Sender, Banca y Telegram, mulas que
+  pagan en cripto o traen el efectivo a la Planta 0, mesa OTC, rigs de
+  minado y busca policial. Planta 3: ruleta, blackjack, póker, tragaperras,
+  apuestas a partidos reales en 5 min, bar y boutique de lujo. Móvil con
+  banco, mensajes (objetivos), tienda y trading.
+- [ ] **Fase 2:** multijugador con colegas (servidor) y chat de voz
 - [ ] **Fase 3:** multijugador (servidor Node + Colyseus) y chat de voz de proximidad
 - [ ] **Fase 4:** primeros roles jugables: broker y dropshipper
 - [ ] **Fase 5:** casino: ruleta, blackjack y póker entre amigos

@@ -192,3 +192,36 @@ export function keyboardTexture() {
     }
   });
 }
+
+// Tienda online en la pantalla de las mesas de dropshipping.
+export function shopScreenTexture(seed: number) {
+  return canvasTexture('shopscreen:' + seed, 256, 160, (ctx, w, h) => {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#8e44ad';
+    ctx.fillRect(0, 0, w, 18);
+    ctx.fillStyle = '#fff';
+    ctx.font = '700 10px sans-serif';
+    ctx.fillText('MI TIENDA · Pedidos de hoy: ' + (12 + seed * 3), 8, 13);
+    const colors = ['#f39c12', '#16a085', '#2980b9', '#c0392b', '#8e44ad', '#27ae60'];
+    for (let i = 0; i < 6; i++) {
+      const x = 10 + (i % 3) * 82, y = 26 + Math.floor(i / 3) * 66;
+      ctx.fillStyle = '#f2f2f2';
+      ctx.fillRect(x, y, 74, 58);
+      ctx.fillStyle = colors[(i + seed) % colors.length];
+      ctx.fillRect(x + 18, y + 6, 38, 30);
+      ctx.fillStyle = '#333';
+      ctx.fillText((9.99 + i * 5).toFixed(2) + ' €', x + 14, y + 50);
+    }
+  });
+}
+
+// Panel LED con cotizaciones que se desplaza (se repinta cada frame).
+export function tickerCanvas() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 2048;
+  canvas.height = 64;
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return { canvas, tex, ctx: canvas.getContext('2d')! };
+}
