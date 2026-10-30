@@ -18,7 +18,8 @@ interface Account {
   id: string;
   name: string;
   bank: string;
-  balance: number;
+  balance: number;              // patrimonio estimado
+  security: number;             // nivel de seguridad 1-5 (más = más difícil)
   trait: 'confiado' | 'desconfiado' | 'nervioso';
 }
 
@@ -26,10 +27,20 @@ interface Campaign {
   sentAt: number;
   readyAt: number;
   size: number;
+  brand: string;                // logo/plantilla de la campaña
 }
 
+// plantillas de campaña con "logo": afectan a la calidad de los accesos
+const CAMPAIGN_BRANDS = [
+  { logo: '📦', name: 'Paquetería: «tienes un envío retenido»', quality: 1.0 },
+  { logo: '🏦', name: 'Tu banco: «movimiento sospechoso»', quality: 1.25 },
+  { logo: '💳', name: 'Aviso de tarjeta bloqueada', quality: 1.1 },
+  { logo: '🎁', name: 'Has ganado un premio', quality: 0.85 },
+  { logo: '⚡', name: 'Factura de la luz impagada', quality: 0.95 },
+];
+
 // lo que no hace falta guardar entre sesiones vive aquí
-const runtime = { accounts: [] as Account[], campaigns: [] as Campaign[] };
+const runtime = { accounts: [] as Account[], campaigns: [] as Campaign[], leads: 0, attempts: 0, hits: 0, earned: 0 };
 
 const MARKET: Omit<Mule, 'id'>[] = [
   { name: 'Kevin (19, Móstoles)', cut: 30, reliability: 62, pays: 'efectivo' },
@@ -57,17 +68,22 @@ export function scamTick(game: Game) {
   for (const c of [...runtime.campaigns]) {
     if (d.time < c.readyAt) continue;
     runtime.campaigns = runtime.campaigns.filter((x) => x !== c);
-    const hits = Math.max(0, Math.round(c.size * (0.0002 + Math.random() * 0.0006)));
+    const brand = CAMPAIGN_BRANDS.find((b) => b.name === c.brand) ?? CAMPAIGN_BRANDS[0];
+    const hits = Math.max(0, Math.round(c.size * (0.0002 + Math.random() * 0.0006) * brand.quality));
     for (let i = 0; i < hits; i++) {
+      const security = 1 + Math.floor(Math.random() * 5);
       runtime.accounts.push({
         id: Math.random().toString(36).slice(2, 7),
         name: NAMES[Math.floor(Math.random() * NAMES.length)],
         bank: FAKE_BANKS[Math.floor(Math.random() * FAKE_BANKS.length)],
-        balance: Math.round(400 + Math.random() * 6000),
+        // más seguridad suele ir con más patrimonio (más jugoso pero más difícil)
+        balance: Math.round((400 + Math.random() * 4000) * (0.6 + security * 0.4) * brand.quality),
+        security,
         trait: (['confiado', 'desconfiado', 'nervioso'] as const)[Math.floor(Math.random() * 3)],
       });
     }
-    phone.notify('📨 Sender', hits ? `Campaña terminada: ${hits} accesos nuevos en la app Banca.` : 'Campaña terminada sin resultados. Prueba con otra lista.');
+    runtime.leads += hits;
+    phone.notify('📨 Sender', hits ? `Campaña ${brand.logo} terminada: ${hits} accesos nuevos en la app Banca.` : 'Campaña terminada sin resultados. Prueba con otra lista.');
   }
   for (const del of [...d.deliveries]) {
     if (d.time < del.arriveAt) continue;
@@ -127,7 +143,8 @@ export function collectCash(game: Game) {
 
 export function scamPc(game: Game, onClose: () => void) {
   const { state, hud } = game;
-  let app: 'escritorio' | 'sender' | 'banca' | 'telegram' = 'escritorio';
+  let app: 'escritorio' | 'sender' | 'banca' | 'telegram' | 'crm' = 'escritorio';
+  let runtime_brand = CAMPAIGN_BRANDS[1].name;
   hud.openPanel('PC · Escritorio', (body) => {
     const render = () => {
       body.innerHTML = '';
@@ -138,28 +155,52 @@ export function scamPc(game: Game, onClose: () => void) {
       if (app !== 'escritorio') body.append(button('‹ Escritorio', () => { app = 'escritorio'; render(); }, 'btn ghost small'));
       if (app === 'escritorio') {
         const grid = el('div', 'desktop');
-        for (const [id, icon, name] of [['sender', '📨', 'Sender'], ['banca', '🏦', 'Banca'], ['telegram', '✈️', 'Telegram']] as const) {
+        for (const [id, icon, name] of [['sender', '📨', 'Sender'], ['banca', '🏦', 'Banca'], ['telegram', '✈️', 'Telegram'], ['crm', '📊', 'CRM']] as const) {
           const b = el('button', 'desk-app');
           b.append(el('span', 'phone-icon', icon), el('span', '', name));
           b.onclick = () => { app = id; render(); };
           grid.append(b);
         }
-        body.append(grid, el('p', 'muted', 'Sender consigue accesos · en Banca preparas la transferencia a tu mula y llamas a la víctima para que la apruebe · en Telegram compras mulas.'));
+        body.append(grid, el('p', 'muted', 'Sender lanza campañas con plantilla · en Banca eliges a quién golpear según su patrimonio y seguridad · Telegram compra mulas · CRM lleva tus leads y conversiones.'));
         return;
       }
       if (app === 'sender') {
-        body.append(el('p', '', 'Lanza una campaña de mensajes masivos. Cuanto más grande la lista, más accesos… y más busca.'));
+        body.append(el('p', '', 'Elige la plantilla (logo) de la campaña y el tamaño de la lista. Cuanto mejor la plantilla, mejores accesos; cuanto más grande la lista, más accesos… y más busca.'));
+        body.append(el('div', 'section', 'Plantilla'));
+        for (const br of CAMPAIGN_BRANDS) {
+          const on = runtime_brand === br.name;
+          body.append(button(`${br.logo}  ${br.name}${br.quality >= 1.2 ? ' · premium' : ''}`, () => { runtime_brand = br.name; render(); }, 'btn ghost small' + (on ? ' on' : '')));
+        }
+        body.append(el('div', 'section', 'Lista'));
         for (const [size, cost] of [[1000, 60], [5000, 250], [20000, 800]] as const) {
           body.append(button(`Lista de ${size.toLocaleString('es-ES')} contactos · ${euros(cost)}`, () => {
             if (d.crypto >= cost) d.crypto -= cost;
             else if (!state.payCash(cost)) return hud.toast('Necesitas cripto o efectivo para comprar la lista', 'bad');
-            runtime.campaigns.push({ sentAt: d.time, readyAt: d.time + 60 + Math.random() * 120, size });
+            runtime.campaigns.push({ sentAt: d.time, readyAt: d.time + 60 + Math.random() * 120, size, brand: runtime_brand });
             addHeat(game, size / 20000);
             hud.toast('📨 Campaña enviada. Te aviso al móvil cuando haya resultados.', 'ok');
             render();
           }, 'btn ghost'));
         }
-        if (runtime.campaigns.length) body.append(el('p', 'muted', `${runtime.campaigns.length} campaña(s) en marcha…`));
+        if (runtime.campaigns.length) {
+          body.append(el('div', 'section', 'En marcha'));
+          for (const c of runtime.campaigns) {
+            const br = CAMPAIGN_BRANDS.find((b) => b.name === c.brand) ?? CAMPAIGN_BRANDS[0];
+            body.append(el('div', 'msg', `${br.logo} ${c.size.toLocaleString('es-ES')} contactos · lista «${br.name}»`));
+          }
+        }
+        return;
+      }
+      if (app === 'crm') {
+        const rate = runtime.attempts ? Math.round((runtime.hits / runtime.attempts) * 100) : 0;
+        body.append(el('div', 'section', 'CRM · embudo'));
+        const kpis = el('div', 'desktop');
+        for (const [label, val] of [['Leads (accesos)', String(runtime.leads)], ['Golpes dados', String(runtime.attempts)], ['Conversiones', String(runtime.hits)], ['Tasa de éxito', rate + ' %'], ['Ganado (abstracto)', euros(runtime.earned)], ['Accesos vivos', String(runtime.accounts.length)]] as const) {
+          const c = el('div', 'desk-app');
+          c.append(el('b', 'big', val), el('span', 'muted', label));
+          kpis.append(c);
+        }
+        body.append(kpis, el('p', 'muted', 'Todo es un minijuego abstracto: nombres, bancos y víctimas inventados. Nunca se piden credenciales reales.'));
         return;
       }
       if (app === 'telegram') {
@@ -188,9 +229,13 @@ export function scamPc(game: Game, onClose: () => void) {
         return;
       }
       if (!d.mules.length) body.append(el('p', 'bad-text', 'Necesitas al menos una mula (Telegram) para recibir el dinero.'));
+      body.append(el('p', 'muted', 'Elige a quién golpear: a más patrimonio, mejor premio; a más seguridad 🛡️, más difícil convencerle y más busca si falla.'));
       for (const a of runtime.accounts) {
+        const shields = '🛡️'.repeat(a.security) + '·'.repeat(5 - a.security);
+        const worth = a.balance / a.security; // patrimonio por unidad de riesgo
+        const tip = worth > 1600 ? '🟢 compensa' : worth > 800 ? '🟡 regular' : '🔴 arriesgado';
         const row = el('div', 'item');
-        row.append(el('span', 'icon', '👤'), el('span', '', `${a.name} · ${a.bank}\nSaldo ${euros(a.balance)} · perfil ${a.trait}`), el('span', ''));
+        row.append(el('span', 'icon', '👤'), el('span', '', `${a.name} · ${a.bank}\nPatrimonio ${euros(a.balance)} · seguridad ${shields} · perfil ${a.trait} · ${tip}`), el('span', ''));
         const b = button('Operar', () => victimCall(game, a, () => scamPc(game, onClose)), 'btn small');
         b.disabled = !d.mules.length;
         row.append(b);
@@ -223,17 +268,22 @@ function victimCall(game: Game, a: Account, back: () => void) {
         return;
       }
       runtime.accounts = runtime.accounts.filter((x) => x !== a);
-      addHeat(game, 0.8);
-      const ok = score >= 4 || (score >= 3 && Math.random() < 0.5);
+      runtime.attempts++;
+      // a más seguridad, hace falta más labia para convencerle
+      const need = Math.min(6, 2 + Math.round(a.security * 0.8));
+      addHeat(game, 0.5 + a.security * 0.15);
+      const ok = score >= need || (score >= need - 1 && Math.random() < 0.5);
       if (ok) {
         const net = Math.round(amount * (1 - mule.cut / 100));
         d.deliveries.push({ id: Math.random().toString(36).slice(2, 7), mule: mule.id, amount: net, arriveAt: d.time + 60 + Math.random() * 180 });
         d.victims++;
+        runtime.hits++;
+        runtime.earned += net;
         state.persist();
-        body.append(el('p', 'big', '✅'), el('p', '', `Operación aprobada. ${mule.name} recibe ${euros(amount)}, se queda su ${mule.cut} % y te enviará ${euros(net)} en ${mule.pays}.`));
+        body.append(el('p', 'big', '✅'), el('p', '', `Operación aprobada (seguridad ${a.security}/5). ${mule.name} recibe ${euros(amount)}, se queda su ${mule.cut} % y te enviará ${euros(net)} en ${mule.pays}.`));
       } else {
         state.persist();
-        body.append(el('p', 'big', '☎️'), el('p', '', 'Ha colgado y ha llamado a su banco. Acceso quemado.'));
+        body.append(el('p', 'big', '☎️'), el('p', '', `Ha colgado y ha llamado a su banco (seguridad ${a.security}/5). Acceso quemado y sube tu busca.`));
       }
       body.append(button('Volver al PC', back));
     };

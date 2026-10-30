@@ -102,12 +102,16 @@
       que aún no han empezado (además del que está en juego).
 
 ### Lado oscuro (versión GTA, abstracto)
-- [ ] Sender con **campañas y logos**, CRM de **leads/conversiones**.
-- [ ] **Víctimas** con **patrimonio estimado** y **nivel de seguridad**;
-      decidir si "compensa" el golpe.
-- [ ] **Golpe = minijuego de riesgo** (no credenciales reales), con premio
-      abstracto y **calor policial** si falla.
-- [ ] **Telegram de mulas** con cortes y porcentajes.
+- [x] Sender con **plantillas/logos** de campaña (paquetería, banco, premio…)
+      que afectan a la calidad, y **CRM** con embudo (leads, golpes,
+      conversiones, tasa de éxito, ganado).
+- [x] **Víctimas** con **patrimonio estimado** y **nivel de seguridad** 🛡️
+      (1-5) + pista de si "compensa"; la seguridad sube la dificultad del
+      golpe y la busca si fallas.
+- [x] **Golpe = minijuego de riesgo** (llamada con decisiones, sin credenciales
+      reales), premio abstracto y **busca policial** si falla (ya existía,
+      ahora escala con la seguridad).
+- [x] **Telegram de mulas** con cortes y porcentajes (ya existía).
 
 ### Multijugador (fase grande)
 - [ ] Servidor autoritativo: chat real, ver a los colegas, **cada grupo su

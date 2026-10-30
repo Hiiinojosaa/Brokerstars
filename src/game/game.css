@@ -265,6 +265,8 @@ select.field { width: auto; }
 .desktop { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; background: linear-gradient(135deg, #1b2a4a, #2a1840); border-radius: 12px; padding: 20px; }
 .desk-app { background: none; border: 0; color: #fff; display: flex; flex-direction: column; align-items: center; gap: 6px; font: 600 13px Inter, sans-serif; cursor: pointer; }
 .desk-app .phone-icon { background: rgba(255,255,255,.12); }
+.btn.on { outline: 2px solid var(--accent); box-shadow: 0 0 8px rgba(242,193,78,.5); }
+.desk-app .big { font: 800 20px Inter, sans-serif; }
 
 /* --- casino v2 --- */
 .chip-stack { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); min-width: 22px; height: 22px; border-radius: 50%; border: 2px dashed rgba(255,255,255,.8); color: #fff; font: 800 10px Inter, sans-serif; display: grid; place-items: center; z-index: 2; box-shadow: 0 2px 4px rgba(0,0,0,.4); }
