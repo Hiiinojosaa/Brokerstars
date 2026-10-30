@@ -82,8 +82,10 @@
       antes de poder pagar; el carrito se queda al lado. `checkoutPanel('staffed')`.
 
 ### Ocio / animaciones
-- [ ] Animaciones de fumar **más profesionales y de ~10 s**: se ve fumando,
-      **liando un porro**, fumando **bong**, o **hinchando/vaciando un globo**.
+- [x] Animaciones de ocio de ~10 s en `Character`: fumar (cigarro a la boca con
+      caladas, brasa que brilla y se consume, humo), **liar un porro** (lo lía
+      entre las manos ~5 s y luego lo fuma), **bong** y **globo** (se hincha y
+      se vacía dando bandazos con escape de aire).
 
 ### Identidad
 - [ ] **Logo Brokerstar** (imagen azul "BROKERSTAR Global Financial

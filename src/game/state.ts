@@ -29,7 +29,7 @@ export interface Item {
   // no se vende (se consigue de otra forma)
   hidden?: boolean;
   // objeto de ocio: se "usa" con animación en vez de comerse
-  ocio?: 'globo' | 'fumar' | 'bong';
+  ocio?: 'globo' | 'fumar' | 'bong' | 'liar';
   // equipable: se queda contigo (móvil, portátil o algo que se lleva en la mano)
   equip?: 'arma' | 'movil' | 'portatil';
 }
@@ -82,7 +82,7 @@ export const ITEMS: Record<string, Item> = {
   hierba: { id: 'hierba', name: 'Cogollo (1 g)', icon: '🌿', price: 10, shelf: 'estanco' },
   polen: { id: 'polen', name: 'Polen (1 g)', icon: '🟫', price: 12, shelf: 'estanco' },
   bho: { id: 'bho', name: 'Extracción BHO (0,5 g)', icon: '🍯', price: 25, shelf: 'estanco' },
-  porro: { id: 'porro', name: 'Porro liado', icon: '🚬', price: 0, shelf: 'estanco', ocio: 'fumar', effect: 'volado', hunger: -8, hidden: true },
+  porro: { id: 'porro', name: 'Porro liado', icon: '🚬', price: 0, shelf: 'estanco', ocio: 'liar', effect: 'volado', hunger: -8, hidden: true },
   // electrónica: móviles y portátiles para trabajar en cualquier sitio
   iphone: { id: 'iphone', name: 'iPhone 18 Pro', icon: '📱', price: 1399, shelf: 'electronica', equip: 'movil' },
   iphone_max: { id: 'iphone_max', name: 'iPhone 18 Pro Max Titanio', icon: '📱', price: 1899, shelf: 'electronica', equip: 'movil' },
@@ -585,7 +585,7 @@ export class GameState {
     const item = ITEMS[id];
     if (!item?.ocio) return 'Esto no se fuma';
     if (!this.data.inventory[id]) return 'No te queda';
-    if ((item.ocio === 'fumar' || item.ocio === 'bong') && !this.data.inventory['mechero']) {
+    if ((item.ocio === 'fumar' || item.ocio === 'bong' || item.ocio === 'liar') && !this.data.inventory['mechero']) {
       return 'Necesitas un mechero (está en el estanco)';
     }
     // el bong es una herramienta reutilizable; lo demás se gasta al usarlo

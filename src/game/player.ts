@@ -50,7 +50,7 @@ export class Player {
   }
 
   // lanza la animación de ocio (globo, fumar, bong) en el personaje
-  ocio(kind: 'globo' | 'fumar' | 'bong') {
+  ocio(kind: 'globo' | 'fumar' | 'bong' | 'liar') {
     this.character.ocio(kind);
   }
 
