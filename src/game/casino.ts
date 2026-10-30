@@ -1124,6 +1124,11 @@ function pickSymbol(g: SlotGame) {
 export function slotsMenu(game: Game) {
   game.hud.openPanel('Tragaperras', (body) => {
     body.append(el('div', 'muted', 'Elige máquina. Cada una juega distinto. Todo con fichas del casino.'));
+    // destacada: Slots MegaFire (misma estética que la ruleta en fuego)
+    const feat = el('button', 'slot-pick mfs-pick');
+    feat.innerHTML = `<b>🔥 Slots MegaFire</b><span>🔥 💰 ⭐ 🎁</span><small>Orbes con multiplicador, colector, tiradas gratis y bonus ×10…×1000.</small>`;
+    feat.onclick = () => megaFireSlotsPanel(game);
+    body.append(feat);
     for (const g of SLOTS) {
       const card = el('button', 'slot-pick');
       card.style.background = g.theme;
@@ -1226,6 +1231,149 @@ function slotMachine(game: Game, g: SlotGame) {
     body.append(bar, grid, msg, sel.row, spin, button('‹ Otras máquinas', () => slotsMenu(game), 'btn ghost'));
     void spinFree;
   });
+}
+
+// --- Slots MegaFire: orbes con multiplicador, colector, tiradas gratis y bonus
+// (misma estética que la ruleta MegaFire) ---------------------------------
+interface MfsSym { icon: string; weight: number; pay: number }
+const MFS_NORMAL: MfsSym[] = [
+  { icon: '🔟', weight: 32, pay: 0.5 },
+  { icon: '🅰️', weight: 24, pay: 0.8 },
+  { icon: '🔔', weight: 18, pay: 1.5 },
+  { icon: '💎', weight: 12, pay: 3 },
+  { icon: '👑', weight: 7, pay: 6 },
+];
+const MFS_ORB_VALUES = [2, 3, 5, 10, 25, 50, 100];
+const MFS_ORB_WEIGHTS = [30, 24, 18, 12, 8, 5, 3];
+interface MfsCell { kind: 'n' | 'orb' | 'collect' | 'scatter' | 'bonus'; icon: string; val?: number }
+
+function mfsPickCell(fs: boolean): MfsCell {
+  const r = Math.random() * 100;
+  const orbRate = fs ? 14 : 8;          // en tiradas gratis caen más orbes
+  const collectRate = fs ? 5 : 3;
+  if (r < orbRate) {
+    if (Math.random() < 0.05) return { kind: 'bonus', icon: '🎁' };
+    return { kind: 'orb', icon: '🔥', val: mfPick(MFS_ORB_VALUES, MFS_ORB_WEIGHTS) };
+  }
+  if (r < orbRate + collectRate) return { kind: 'collect', icon: '💰' };
+  if (r < orbRate + collectRate + 2.5) return { kind: 'scatter', icon: '⭐' };
+  const idx = mfPick(MFS_NORMAL.map((_, i) => i), MFS_NORMAL.map((s) => s.weight));
+  return { kind: 'n', icon: MFS_NORMAL[idx].icon };
+}
+
+export function megaFireSlotsPanel(game: Game) {
+  const { hud } = game;
+  let closed = false;
+  const timers = new Set<number>();
+  const after = (ms: number, fn: () => void) => { const id = window.setTimeout(() => { timers.delete(id); if (!closed) fn(); }, ms); timers.add(id); return id; };
+  const sleep = (ms: number) => new Promise<void>((res) => after(ms, res));
+
+  const COLS = 5, ROWS = 4, N = COLS * ROWS;
+  let freeSpins = 0, fsMult = 1, busy = false;
+
+  hud.openPanel('🔥 Slots MegaFire', (body) => {
+    const bar = chipBar(game);
+    const sel = betSelector([5, 25, 100, 500, 1000]);
+    const grid = el('div', 'slot-grid mfs-grid');
+    grid.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
+    const cells: HTMLElement[] = [];
+    for (let i = 0; i < N; i++) { const c = el('div', 'slot-cell mfs-cell'); c.textContent = MFS_NORMAL[i % MFS_NORMAL.length].icon; cells.push(c); grid.append(c); }
+    const msg = el('div', 'muted', '🔥 orbes = multiplicadores · 💰 colector = los cobra todos · 3+ ⭐ = tiradas gratis · 🎁 = bonus. Todo con fichas.');
+    const bonusWrap = el('div', 'mfs-bonus-slot');
+    const refreshBar = () => { bar.textContent = `🪙 ${chips(game.state.data.chips)}${freeSpins ? ` · 🎁 ${freeSpins} gratis ×${fsMult}` : ''}`; };
+
+    const paintCell = (i: number, c: MfsCell) => {
+      const e = cells[i];
+      e.className = 'slot-cell mfs-cell ' + (c.kind === 'orb' ? 'orb' : c.kind === 'collect' ? 'collect' : c.kind === 'scatter' ? 'scatter' : c.kind === 'bonus' ? 'bonus' : '');
+      e.innerHTML = c.kind === 'orb' ? `🔥<span class="mfs-val">×${c.val}</span>` : c.icon;
+    };
+
+    const runBonus = (cb: (v: number) => void) => {
+      bonusWrap.innerHTML = '';
+      const bonus = el('div', 'mf-bonus');
+      const strip = el('div', 'mf-bonus-strip');
+      const bcells = MF_BONUS.map((v) => { const c = el('div', 'mf-bonus-cell', '×' + v); strip.append(c); return c; });
+      bonus.append(el('div', 'mf-bonus-title', '🎁 BONUS MEGAFIRE'), strip);
+      bonusWrap.append(bonus);
+      const winner = mfPick(MF_BONUS, MF_BONUS_WEIGHTS);
+      let i = 0, ticks = 0;
+      const total = 26 + Math.floor(Math.random() * MF_BONUS.length);
+      const hop = () => {
+        bcells.forEach((c) => c.classList.remove('on'));
+        bcells[i % bcells.length].classList.add('on');
+        if (ticks >= total && MF_BONUS[i % bcells.length] === winner) { after(700, () => { after(900, () => bonus.remove()); cb(winner); }); return; }
+        ticks++; i++;
+        after(ticks > total - 7 ? 170 : 60, hop);
+      };
+      hop();
+    };
+
+    const settle = async (stake: number) => {
+      // animación de rodillos
+      for (let t = 0; t < 12; t++) { cells.forEach((c, i) => { if (t < 5 + (i % COLS) * 2) c.textContent = mfsPickCell(freeSpins > 0).icon; }); await sleep(45); }
+      const board: MfsCell[] = Array.from({ length: N }, () => mfsPickCell(freeSpins > 0));
+      board.forEach((c, i) => paintCell(i, c));
+      await sleep(250);
+
+      let won = 0;
+      // racimos de 8+ del mismo símbolo normal
+      const counts = new Map<string, number[]>();
+      board.forEach((c, i) => { if (c.kind === 'n') counts.set(c.icon, [...(counts.get(c.icon) ?? []), i]); });
+      for (const [icon, idx] of counts) if (idx.length >= 8) {
+        won += stake * (MFS_NORMAL.find((s) => s.icon === icon)!.pay) * (idx.length - 7);
+        idx.forEach((i) => cells[i].classList.add('slot-win'));
+      }
+      // orbes + colector
+      const orbs = board.map((c, i) => ({ c, i })).filter((x) => x.c.kind === 'orb');
+      const collectors = board.map((c, i) => i).filter((i) => board[i].kind === 'collect');
+      const hasBonus = board.some((c) => c.kind === 'bonus');
+      let collectMsg = '';
+      if (collectors.length && (orbs.length || hasBonus)) {
+        cells.forEach((c) => c.classList.remove('slot-win'));
+        collectors.forEach((i) => cells[i].classList.add('mfs-collecting'));
+        orbs.forEach((o) => cells[o.i].classList.add('mfs-collecting'));
+        await sleep(650);
+        const orbSum = orbs.reduce((s, o) => s + (o.c.val || 0), 0);
+        const collected = stake * orbSum * collectors.length * fsMult;
+        if (collected) won += collected;
+        collectMsg = `💰 colecta ×${orbSum}${collectors.length > 1 ? ` ×${collectors.length} colectores` : ''}${fsMult > 1 ? ` ×${fsMult}` : ''} = ${chips(collected)}`;
+        if (hasBonus) {
+          await sleep(300);
+          await new Promise<void>((res) => runBonus((v) => { const bw = stake * v * fsMult; won += bw; collectMsg += ` · 🎁 ×${v} = ${chips(bw)}`; res(); }));
+        }
+      }
+      // scatters → tiradas gratis
+      const scatters = board.filter((c) => c.kind === 'scatter').length;
+      let fsMsg = '';
+      if (scatters >= 3) {
+        board.forEach((c, i) => { if (c.kind === 'scatter') cells[i].classList.add('slot-win'); });
+        if (freeSpins > 0) { freeSpins += 5; fsMsg = ' · 🎁 +5 tiradas gratis'; }
+        else { freeSpins = 8; fsMult = 1; fsMsg = ' · 🎁 ¡8 TIRADAS GRATIS! Los colectores suben el multiplicador'; }
+      }
+      if (won) win(game, won);
+      refreshBar();
+      msg.innerHTML = `${won ? `🎉 +${chips(won)}` : 'Sin premio'}${collectMsg ? ` · ${collectMsg}` : ''}${fsMsg}`;
+      setTimeout(() => cells.forEach((c) => c.classList.remove('slot-win', 'mfs-collecting')), 1200);
+    };
+
+    const spin = button('🎰 Tirar', async () => {
+      if (busy) return;
+      const free = freeSpins > 0;
+      const stake = sel.get();
+      if (!free && !spend(game, stake)) return;
+      busy = true; spin.disabled = true;
+      if (free) { freeSpins--; }
+      await settle(stake);
+      if (free) fsMult++; // en tiradas gratis el multiplicador crece
+      busy = false; spin.disabled = false;
+      refreshBar();
+      if (freeSpins > 0) { msg.innerHTML += ` · quedan ${freeSpins} gratis ×${fsMult}`; }
+      else if (free) { fsMult = 1; }
+    });
+
+    refreshBar();
+    body.append(bar, grid, bonusWrap, msg, sel.row, spin, button('‹ Otras máquinas', () => slotsMenu(game), 'btn ghost'));
+  }, () => { closed = true; timers.forEach((t) => clearTimeout(t)); timers.clear(); });
 }
 
 // --- póker Texas Hold'em contra dos jugadores del casino ---

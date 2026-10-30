@@ -362,3 +362,16 @@ select.field { width: auto; }
 .mf-bonus-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .mf-bonus-cell { padding: 14px 4px; border-radius: 10px; background: rgba(255,255,255,.08); font: 800 16px Inter, sans-serif; color: #fff; opacity: .55; transition: all .1s; }
 .mf-bonus-cell.on { opacity: 1; background: radial-gradient(circle at 50% 30%, #ffd84a, #c8860a); color: #3a1000; transform: scale(1.12); box-shadow: 0 0 16px rgba(255,200,60,.9); }
+
+/* --- Slots MegaFire --- */
+.mfs-pick { background: radial-gradient(130% 140% at 50% 0%, #5a1e06, #1a0804) !important; box-shadow: inset 0 0 22px rgba(255,120,30,.3); }
+.mfs-grid { background: radial-gradient(130% 120% at 50% 0%, #2a0f04, #120603); border: 1px solid #5a2a10; }
+.mfs-cell { position: relative; }
+.mfs-cell.orb { background: radial-gradient(circle at 50% 32%, #ff9a3c, #b3320a); box-shadow: 0 0 12px rgba(255,120,30,.7); animation: mf-flicker 1.1s infinite alternate; }
+.mfs-cell.collect { background: radial-gradient(circle at 50% 32%, #ffd84a, #b8860a); box-shadow: 0 0 12px rgba(255,200,60,.8); }
+.mfs-cell.scatter { background: radial-gradient(circle at 50% 32%, #8a5cff, #3a1680); box-shadow: 0 0 12px rgba(150,110,255,.8); }
+.mfs-cell.bonus { background: radial-gradient(circle at 50% 32%, #6fffa0, #0f8a4a); box-shadow: 0 0 12px rgba(80,255,150,.8); }
+.mfs-cell .mfs-val { position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); font: 800 11px Inter, sans-serif; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.mfs-cell.mfs-collecting { outline: 2px solid #ffd84a; box-shadow: 0 0 18px rgba(255,200,60,.95); transform: scale(1.08); }
+.mfs-bonus-slot:empty { display: none; }
+.mfs-bonus-slot { margin: 6px 0; }

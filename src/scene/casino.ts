@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { PRESETS } from '../characters/catalog';
 import { Character } from '../characters/Character';
 import type { CharacterConfig } from '../characters/types';
-import { baccaratPanel, barPanel, blackjackPanel, cashierPanel, crazyTimePanel, megaFireTerminalPanel, pokerPanel, slotsMenu, sportsbook, sportsbookPanel } from '../game/casino';
+import { baccaratPanel, barPanel, blackjackPanel, cashierPanel, crazyTimePanel, megaFireSlotsPanel, megaFireTerminalPanel, pokerPanel, slotsMenu, sportsbook, sportsbookPanel } from '../game/casino';
 import { CASINO_NAME } from '../game/config';
 import { button, el, euros } from '../game/hud';
 import { rect, type Floor, type Game, type Interactable, type Rect } from '../game/world';
@@ -139,6 +139,29 @@ function slotMachine(i: number) {
   const lever = cyl(0.02, 0.4, mats.steel, 0.4, 1.1, 0);
   g.add(lever, new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 8), new THREE.MeshStandardMaterial({ color: '#e74c3c' })).translateX(0.4).translateY(1.32));
   g.add(cyl(0.18, 0.5, darkWood, 0, 0.25, 0.75, 16)); // taburete
+  return g;
+}
+
+// Cabina destacada de Slots MegaFire: carcasa en fuego con pantalla grande.
+function megaFireSlotsCabinet() {
+  const g = new THREE.Group();
+  const body = new THREE.MeshStandardMaterial({ color: '#7a1f08', roughness: 0.4, metalness: 0.3, emissive: '#3a1000', emissiveIntensity: 0.3 });
+  g.add(box(0.95, 2.1, 0.7, body, 0, 1.05, 0, 0.06));
+  const { tex } = canvasTex(160, 128, (ctx) => {
+    ctx.fillStyle = '#140603'; ctx.fillRect(0, 0, 160, 128);
+    const gr = ctx.createRadialGradient(80, 20, 6, 80, 50, 120);
+    gr.addColorStop(0, 'rgba(255,120,30,.6)'); gr.addColorStop(1, 'rgba(20,6,3,0)');
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, 160, 128);
+    ctx.font = '30px serif'; ctx.textAlign = 'center';
+    ctx.fillText('🔥💰⭐', 80, 56); ctx.fillText('🔥🔥🎁', 80, 96);
+  });
+  const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.58), glow(tex, 1.0));
+  scr.position.set(0, 1.28, 0.36);
+  g.add(scr);
+  const topper = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.3, 0.1), new THREE.MeshStandardMaterial({ color: '#ff7a1a', emissive: '#ff7a1a', emissiveIntensity: 1.3 }));
+  topper.position.set(0, 2.25, 0.2);
+  g.add(topper);
+  g.add(cyl(0.2, 0.5, darkWood, 0, 0.25, 0.85, 16)); // taburete
   return g;
 }
 
@@ -466,6 +489,17 @@ export function createCasino(gameRef: () => Game): Floor {
   }
   colliders.push(rect(-W / 2 + 0.4, -3.1, 0.8, 8));
   for (let i = 0; i < 8; i += 2) interactables.push({ label: 'Tragaperras', x: -W / 2 + 1.6, z: -6.1 + i * 1.0, radius: 0.9, run: () => slotsMenu(gameRef()) });
+  // cabina destacada de Slots MegaFire (pared oeste, al sur de la fila)
+  const mfsCab = megaFireSlotsCabinet();
+  mfsCab.position.set(-W / 2 + 0.5, 0, 3.4);
+  mfsCab.rotation.y = Math.PI / 2;
+  g.add(mfsCab);
+  colliders.push(rect(-W / 2 + 0.4, 3.4, 0.9, 1.0));
+  interactables.push({ label: 'Slots MegaFire', x: -W / 2 + 1.6, z: 3.4, radius: 1.0, run: () => megaFireSlotsPanel(gameRef()) });
+  const mfsSign = signPlane('SLOTS MEGAFIRE', 'orbes · colector · bonus', 1.3, 0.42);
+  mfsSign.position.set(-W / 2 + 0.06, 2.7, 3.4);
+  mfsSign.rotation.y = Math.PI / 2;
+  g.add(mfsSign);
 
   // apuestas deportivas: pantallas gigantes en la pared norte, lado este
   const screen = canvasTex(1024, 512, () => undefined);

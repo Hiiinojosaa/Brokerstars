@@ -49,8 +49,10 @@
 
 ### Casino
 - [x] Ruleta terminal + minijuego MegaFire.
-- [ ] **Slots estilo MegaFire**: con multiplicadores que caen, bonus y
-      tiradas gratis (misma estética que la ruleta nueva).
+- [x] **Slots MegaFire**: orbes 🔥 con multiplicador, colector 💰 que los
+      cobra todos, 3+ ⭐ = tiradas gratis con multiplicador creciente, 🎁 =
+      ruleta de bonus ×10…×1000. `megaFireSlotsPanel` en `src/game/casino.ts`,
+      cabina 3D `megaFireSlotsCabinet()`, en el móvil y en el menú de slots.
 - [ ] Sentarse físicamente en las mesas (ruleta, blackjack, baccarat).
 - [ ] Más juegos (gemas/diamantes, Mega Wheel…).
 
