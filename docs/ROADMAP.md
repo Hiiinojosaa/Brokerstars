@@ -73,9 +73,11 @@
       importes rápidos) y **transferencias** por IBAN. En `bankApp` (apps.ts).
 
 ### Supermercado (grande grande)
-- [ ] Hacerlo mucho más grande (es clave: los dropshippers venden productos
-      que aparecen en las **vitrinas**; si otro jugador compra, gana el
-      vendedor). Se vende de todo: móviles, armas, etc.
+- [~] Más grande por dentro: **pasillos (góndolas)** en el centro con
+      productos a la vista y **2 categorías nuevas** (Frescos: fruta/pan/lácteos
+      y Hogar/limpieza, 11 productos). Pendiente de la fase multijugador: que
+      los dropshippers vendan en las vitrinas y gane el vendedor cuando otro
+      jugador compra (requiere servidor).
 - [x] **Máquina de tabaco** junto al estanco: expendedora con los paquetes;
       eliges y se cobra en el autopago (abre la selección del estanco).
 - [x] **Autopago estilo Carrefour**: varias autocajas; lista + total →

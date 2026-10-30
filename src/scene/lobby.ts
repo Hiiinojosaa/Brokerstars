@@ -455,6 +455,32 @@ export function createLobby(gameRef: () => Game): Floor {
   g.add(vend);
   colliders.push(rect(9.7, 1.2, 0.6, 0.6));
   interactables.push({ label: 'Máquina de tabaco', x: 9.0, z: 1.2, radius: 0.9, run: () => shelfPanel(gameRef(), cart, 'estanco') });
+  // pasillos (góndolas) en el centro del súper: frescos y hogar, para que sea
+  // más grande y tenga pasillos por los que andar
+  const gondola = (gx: number, gz: number, len: number) => {
+    const gg = new THREE.Group();
+    gg.add(box(0.8, 1.2, len, mats.plastic, 0, 0.6, 0, 0.02));
+    gg.add(box(0.86, 0.04, len, mats.steel, 0, 1.0, 0));
+    for (let i = 0; i < Math.floor(len * 2.2); i++) {
+      const side = i % 2 ? 1 : -1;
+      const zz = -len / 2 + 0.35 + Math.floor(i / 2) * 0.5;
+      const h = 0.12 + (i % 3) * 0.06;
+      gg.add(box(0.14, h, 0.3, new THREE.MeshStandardMaterial({ color: new THREE.Color(`hsl(${(i * 53) % 360},60%,55%)`) }), side * 0.32, 0.72 + h / 2, zz));
+    }
+    gg.position.set(gx, 0, gz);
+    g.add(gg);
+    colliders.push(rect(gx, gz, 0.9, len + 0.2));
+  };
+  gondola(3.9, 0.3, 4.4);
+  gondola(5.7, 0.3, 4.4);
+  interactables.push({ label: 'Frescos: fruta, pan y lácteos', x: 3.1, z: 0.3, radius: 1.0, run: () => shelfPanel(gameRef(), cart, 'fresco') });
+  interactables.push({ label: 'Hogar y limpieza', x: 4.9, z: 0.3, radius: 1.0, run: () => shelfPanel(gameRef(), cart, 'hogar') });
+  const frescoSign = sign('FRESCOS', 'fruta · pan · lácteos', 1.3, 0.4);
+  frescoSign.position.set(3.9, 2.2, 0.3);
+  g.add(frescoSign);
+  const hogarSign = sign('HOGAR', 'limpieza · bazar', 1.3, 0.4);
+  hogarSign.position.set(5.7, 2.2, 0.3);
+  g.add(hogarSign);
 
   // luces
   g.add(new THREE.HemisphereLight('#fff4e6', '#4c4640', 0.65));

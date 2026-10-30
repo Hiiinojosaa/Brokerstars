@@ -16,6 +16,8 @@ export const SHELF_NAMES: Record<Shelf, string> = {
   estanco: 'Estanco',
   electronica: 'Electrónica',
   armeria: 'Armería',
+  fresco: 'Frescos',
+  hogar: 'Hogar y limpieza',
   otros: 'Otros',
 };
 

@@ -12,7 +12,7 @@ import {
 // negocios y necesidades. Se guarda en el navegador; con multijugador lo
 // llevará el servidor.
 
-export type Shelf = 'congelados' | 'snacks' | 'bebidas' | 'fiesta' | 'estanco' | 'electronica' | 'armeria' | 'otros';
+export type Shelf = 'congelados' | 'snacks' | 'bebidas' | 'fiesta' | 'estanco' | 'electronica' | 'armeria' | 'fresco' | 'hogar' | 'otros';
 
 export interface Item {
   id: string;
@@ -83,6 +83,19 @@ export const ITEMS: Record<string, Item> = {
   polen: { id: 'polen', name: 'Polen (1 g)', icon: '🟫', price: 12, shelf: 'estanco' },
   bho: { id: 'bho', name: 'Extracción BHO (0,5 g)', icon: '🍯', price: 25, shelf: 'estanco' },
   porro: { id: 'porro', name: 'Porro liado', icon: '🚬', price: 0, shelf: 'estanco', ocio: 'liar', effect: 'volado', hunger: -8, hidden: true },
+  // frescos: fruta, pan y lácteos
+  manzanas: { id: 'manzanas', name: 'Bolsa de manzanas', icon: '🍎', price: 2.4, shelf: 'fresco', hunger: 16 },
+  platanos: { id: 'platanos', name: 'Plátanos de Canarias', icon: '🍌', price: 1.9, shelf: 'fresco', hunger: 14, energy: 6 },
+  pan: { id: 'pan', name: 'Barra de pan', icon: '🥖', price: 0.9, shelf: 'fresco', hunger: 18 },
+  leche: { id: 'leche', name: 'Brik de leche', icon: '🥛', price: 1.1, shelf: 'fresco', hunger: 10, energy: 4 },
+  huevos: { id: 'huevos', name: 'Docena de huevos', icon: '🥚', price: 2.3, shelf: 'fresco', hunger: 20 },
+  queso: { id: 'queso', name: 'Cuña de queso curado', icon: '🧀', price: 4.5, shelf: 'fresco', hunger: 24 },
+  // hogar y limpieza
+  detergente: { id: 'detergente', name: 'Detergente', icon: '🧴', price: 6.5, shelf: 'hogar' },
+  papel_hig: { id: 'papel_hig', name: 'Papel higiénico (12)', icon: '🧻', price: 5.9, shelf: 'hogar' },
+  bombilla: { id: 'bombilla', name: 'Bombilla LED', icon: '💡', price: 3.2, shelf: 'hogar' },
+  pilas: { id: 'pilas', name: 'Pilas AA (x8)', icon: '🔋', price: 4.8, shelf: 'hogar' },
+  fregona: { id: 'fregona', name: 'Fregona y cubo', icon: '🧹', price: 8.9, shelf: 'hogar' },
   // electrónica: móviles y portátiles para trabajar en cualquier sitio
   iphone: { id: 'iphone', name: 'iPhone 18 Pro', icon: '📱', price: 1399, shelf: 'electronica', equip: 'movil' },
   iphone_max: { id: 'iphone_max', name: 'iPhone 18 Pro Max Titanio', icon: '📱', price: 1899, shelf: 'electronica', equip: 'movil' },
