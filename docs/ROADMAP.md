@@ -73,15 +73,13 @@
 - [ ] Hacerlo mucho más grande (es clave: los dropshippers venden productos
       que aparecen en las **vitrinas**; si otro jugador compra, gana el
       vendedor). Se vende de todo: móviles, armas, etc.
-- [ ] **Stand de tabaco** con distintos paquetes bien puestos en estantería +
-      **máquina interactiva** al lado: aparece cada paquete con su precio,
-      saca el tabaco y se paga en el autopago.
-- [ ] **Autopago estilo Carrefour**: cuadrado con varias máquinas
-      interactivas; metes productos → lista y total → pagar con efectivo o
-      tarjeta → **ticket**. **Tarjeta de la tienda** (descuentos) que se mete
-      antes de pagar.
-- [ ] **Caja atendida**: dejas los artículos, el empleado los pasa, y el
-      carrito se queda al lado de la caja.
+- [x] **Máquina de tabaco** junto al estanco: expendedora con los paquetes;
+      eliges y se cobra en el autopago (abre la selección del estanco).
+- [x] **Autopago estilo Carrefour**: varias autocajas; lista + total →
+      **tarjeta de la tienda** (−8%, alta gratis) → pagar efectivo/tarjeta →
+      **ticket impreso** con sello PAGADO. `checkoutPanel('self')`.
+- [x] **Caja atendida**: el cajero "pasa" los artículos (barra de escaneo)
+      antes de poder pagar; el carrito se queda al lado. `checkoutPanel('staffed')`.
 
 ### Ocio / animaciones
 - [ ] Animaciones de fumar **más profesionales y de ~10 s**: se ve fumando,

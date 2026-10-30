@@ -414,14 +414,29 @@ export function createLobby(gameRef: () => Game): Floor {
   g.add(box(0.35, 0.25, 0.05, mats.plastic, 10.0, 1.15, 5.05));
   colliders.push(rect(9.6, 4.8, 2.3, 0.8));
   npc({ name: 'Cajero', face: 'normal', skin: '#8d5a3b', hairStyle: 'rapado', top: 'camiseta', topColor: '#c0392b', print: 'ninguno', pants: 'rectos', pantsColor: '#1f2c45', shoes: 'bajas', glasses: 'ninguna' }, 9.6, 5.5, Math.PI, g, people);
-  interactables.push({ label: 'Caja: pagar la compra', x: 9.6, z: 4.0, radius: 1.1, run: () => checkoutPanel(gameRef(), cart) });
+  interactables.push({ label: 'Caja atendida: el cajero pasa tu compra', x: 9.6, z: 4.0, radius: 1.1, run: () => checkoutPanel(gameRef(), cart, 'staffed') });
   for (const ax of [5.0, 6.0, 7.0] as const) {
     const sc = selfCheckout();
     sc.position.set(ax, 0, 4.9);
     g.add(sc);
     colliders.push(rect(ax, 4.9, 0.6, 0.5));
-    interactables.push({ label: 'Autocaja: escanea y paga', x: ax, z: 4.1, radius: 0.9, run: () => checkoutPanel(gameRef(), cart) });
+    interactables.push({ label: 'Autopago: escanea, tarjeta cliente y paga', x: ax, z: 4.1, radius: 0.9, run: () => checkoutPanel(gameRef(), cart, 'self') });
   }
+  // máquina expendedora de tabaco junto al estanco
+  const vend = new THREE.Group();
+  vend.add(box(0.7, 1.8, 0.5, new THREE.MeshStandardMaterial({ color: '#8a1f2a', roughness: 0.5 }), 0, 0.9, 0, 0.03));
+  const vendGlass = canvasTex(96, 128, (ctx) => {
+    ctx.fillStyle = '#111'; ctx.fillRect(0, 0, 96, 128);
+    ctx.font = '22px serif'; ctx.textAlign = 'center';
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) ctx.fillText('🚬', 18 + c * 30, 28 + r * 30);
+  });
+  vend.add(new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.7), glow(vendGlass, 0.5)).translateY(1.0).translateZ(0.26));
+  vend.add(box(0.5, 0.25, 0.05, mats.plastic, 0, 1.55, 0.26));
+  vend.position.set(9.7, 0, 1.2);
+  vend.rotation.y = -Math.PI / 2;
+  g.add(vend);
+  colliders.push(rect(9.7, 1.2, 0.6, 0.6));
+  interactables.push({ label: 'Máquina de tabaco', x: 9.0, z: 1.2, radius: 0.9, run: () => shelfPanel(gameRef(), cart, 'estanco') });
 
   // luces
   g.add(new THREE.HemisphereLight('#fff4e6', '#4c4640', 0.65));

@@ -198,6 +198,11 @@ select.field { width: auto; }
 .ticket .mov { border-color: #ddd; }
 .ticket-head { text-align: center; font-weight: 800; margin-bottom: 6px; }
 .ticket-total { font-weight: 800; font-size: 15px; }
+.ticket .pos { color: #1aa260; }
+.ticket.paid { position: relative; }
+.ticket-stamp { margin-top: 8px; text-align: center; color: #c0392b; font-weight: 800; letter-spacing: 2px; border: 2px dashed #c0392b; border-radius: 6px; padding: 4px; }
+.scan-bar { height: 10px; border-radius: 6px; background: rgba(0,0,0,.15); overflow: hidden; margin: 8px 0; }
+.scan-fill { height: 100%; width: 0; background: linear-gradient(90deg,#1aa260,#58d68d); transition: width 1.7s linear; }
 /* --- ascensor --- */
 .lift-pad { display: flex; flex-direction: column; gap: 10px; background: linear-gradient(#8d939c, #b8bec6); border-radius: 14px; padding: 16px; }
 .lift-btn { display: flex; align-items: center; gap: 14px; background: none; border: 0; color: #111; font: 700 15px Inter, sans-serif; cursor: pointer; text-align: left; }

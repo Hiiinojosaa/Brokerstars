@@ -163,33 +163,81 @@ export function shelfPanel(game: Game, cart: ShopCart, shelf: Shelf) {
   });
 }
 
-export function checkoutPanel(game: Game, cart: ShopCart) {
+const STORE_DISCOUNT = 0.08; // tarjeta de cliente: −8 %
+
+export function checkoutPanel(game: Game, cart: ShopCart, mode: 'self' | 'staffed' = 'self') {
   const { state, hud } = game;
   if (!cart.active || !cart.count) return hud.toast('El carro está vacío', 'bad');
-  hud.openPanel(`${SHOP_NAME} · Caja`, (body) => {
-    const ticket = el('div', 'ticket');
-    ticket.append(el('div', 'ticket-head', `${SHOP_NAME} 24 H · TICKET`));
-    for (const [id, n] of Object.entries(cart.items)) {
-      const r = el('div', 'mov');
-      r.append(el('span', '', `${n} × ${ITEMS[id].name}`), el('span', '', euros(ITEMS[id].price * n)));
-      ticket.append(r);
-    }
-    const tot = el('div', 'mov ticket-total');
-    tot.append(el('span', '', 'TOTAL'), el('span', '', euros(cart.total)));
-    ticket.append(tot);
-    body.append(ticket);
-    const pay = (method: 'cash' | 'card') => {
-      const ok = method === 'cash' ? state.payCash(cart.total) : state.hasCard && state.payCard(cart.total, `Compra ${SHOP_NAME}`);
-      if (!ok) return hud.toast(method === 'cash' ? 'No llevas efectivo suficiente' : 'Tarjeta rechazada (¿llevas tarjeta y saldo?)', 'bad');
-      for (const [id, n] of Object.entries(cart.items)) state.addItem(id, n);
-      state.complete('comprar');
-      hud.toast(`Pagado ${euros(cart.total)} · todo al inventario`, 'ok');
-      cart.detach();
-      game.player.slow = false;
-      hud.closePanel();
+  let useCard = state.data.storeCard;      // usa la tarjeta de cliente si la tienes
+  let scanned = mode === 'self';            // en caja atendida hay que esperar al cajero
+  hud.openPanel(`${SHOP_NAME} · ${mode === 'self' ? 'Autopago' : 'Caja atendida'}`, (body) => {
+    const ticket = () => {
+      const discount = useCard && state.data.storeCard ? Math.round(cart.total * STORE_DISCOUNT * 100) / 100 : 0;
+      const total = Math.round((cart.total - discount) * 100) / 100;
+      const t = el('div', 'ticket');
+      t.append(el('div', 'ticket-head', `${SHOP_NAME} 24 H · TICKET`));
+      for (const [id, n] of Object.entries(cart.items)) {
+        const r = el('div', 'mov');
+        r.append(el('span', '', `${n} × ${ITEMS[id].name}`), el('span', '', euros(ITEMS[id].price * n)));
+        t.append(r);
+      }
+      if (discount) {
+        const r = el('div', 'mov');
+        r.append(el('span', '', 'TARJETA CLIENTE −8%'), el('span', 'pos', `−${euros(discount)}`));
+        t.append(r);
+      }
+      const tot = el('div', 'mov ticket-total');
+      tot.append(el('span', '', 'TOTAL'), el('span', '', euros(total)));
+      t.append(tot);
+      return { el: t, total };
     };
-    const row = el('div', 'row');
-    row.append(button(`Pagar en efectivo (${euros(state.data.cash)})`, () => pay('cash')), button('Pagar con tarjeta', () => pay('card'), 'btn ghost'));
-    body.append(row);
+
+    const render = () => {
+      body.innerHTML = '';
+      const { el: tk, total } = ticket();
+      body.append(tk);
+      // tarjeta de cliente
+      if (state.data.storeCard) {
+        const toggle = button(`💳 Tarjeta de la tienda: ${useCard ? 'aplicada ✓' : 'sin aplicar'}`, () => { useCard = !useCard; render(); }, 'btn ghost small');
+        body.append(toggle);
+      } else {
+        body.append(button('💳 Hazte la tarjeta de la tienda (gratis, −8%)', () => {
+          state.data.storeCard = true; useCard = true; state.persist();
+          hud.toast('💳 Tarjeta de cliente activada', 'ok');
+          render();
+        }, 'btn ghost small'));
+      }
+      // caja atendida: el cajero pasa los artículos antes de poder pagar
+      if (mode === 'staffed' && !scanned) {
+        body.append(el('p', 'muted', 'Deja los artículos en la cinta; el cajero los va pasando. El carrito se queda al lado.'));
+        const barWrap = el('div', 'scan-bar');
+        const fill = el('div', 'scan-fill');
+        barWrap.append(fill);
+        body.append(barWrap);
+        requestAnimationFrame(() => (fill.style.width = '100%'));
+        setTimeout(() => { scanned = true; render(); }, 1800);
+        return;
+      }
+      const pay = (method: 'cash' | 'card') => {
+        const ok = method === 'cash' ? state.payCash(total) : state.hasCard && state.payCard(total, `Compra ${SHOP_NAME}`);
+        if (!ok) return hud.toast(method === 'cash' ? 'No llevas efectivo suficiente' : 'Tarjeta rechazada (¿llevas tarjeta y saldo?)', 'bad');
+        for (const [id, n] of Object.entries(cart.items)) state.addItem(id, n);
+        state.complete('comprar');
+        // ticket impreso de confirmación
+        body.innerHTML = '';
+        const { el: paid } = ticket();
+        paid.classList.add('paid');
+        paid.append(el('div', 'ticket-stamp', `PAGADO · ${method === 'cash' ? 'EFECTIVO' : 'TARJETA'}`));
+        body.append(paid, el('p', 'muted', 'Gracias por su compra. Todo va a tu inventario.'), button('Coger el ticket y salir', () => {
+          cart.detach();
+          game.player.slow = false;
+          hud.closePanel();
+        }));
+      };
+      const row = el('div', 'row');
+      row.append(button(`Pagar en efectivo (${euros(state.data.cash)})`, () => pay('cash')), button('Pagar con tarjeta', () => pay('card'), 'btn ghost'));
+      body.append(row);
+    };
+    render();
   });
 }
