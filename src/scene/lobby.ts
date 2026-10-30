@@ -15,9 +15,9 @@ import { signTexture, sunsetTexture } from './officeTextures';
 // - Banco (izquierda): ventanilla y despacho del gestor de préstamos.
 // - MegaMart (derecha): carros, estanterías, neveras, estanco y caja.
 
-const W = 18, D = 12, H = 3.4;
+const W = 24, D = 14, H = 3.4;
 const BANK_X = -3; // pared entre banco y vestíbulo
-const SHOP_X = 3; // pared entre vestíbulo y súper
+const SHOP_X = 2; // pared entre vestíbulo y súper (el súper es el más grande)
 const DOOR = { z: 2.6, w: 1.8 }; // puertas de banco y súper (mismo sitio en las dos paredes)
 
 function canvasTex(w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void) {
@@ -196,7 +196,7 @@ export function createLobby(gameRef: () => Game): Floor {
   ceiling.position.y = H;
   g.add(ceiling);
   const panel = new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#fff6e6', emissiveIntensity: 1.2 });
-  for (let x = -7; x <= 7; x += 3.5) for (let z = -3.5; z <= 3.5; z += 3.5) g.add(box(1.4, 0.04, 0.35, panel, x, H - 0.02, z));
+  for (let x = -10; x <= 10; x += 3.3) for (let z = -5; z <= 5; z += 3.3) g.add(box(1.4, 0.04, 0.35, panel, x, H - 0.02, z));
 
   // paredes exteriores y de separación
   const wall = new THREE.MeshStandardMaterial({ color: '#e3dccf', roughness: 0.9 });
@@ -323,84 +323,87 @@ export function createLobby(gameRef: () => Game): Floor {
   shopSign.rotation.y = -Math.PI / 2;
   shopSign.position.set(SHOP_X - 0.12, 2.95, DOOR.z);
   g.add(shopSign);
-  // carros en la entrada
-  for (let i = 0; i < 4; i++) {
+  // carros en la entrada (junto a la puerta del súper)
+  for (let i = 0; i < 5; i++) {
     const c = cartModel();
-    c.position.set(SHOP_X + 0.7, 0, 4.4 + i * 0.25);
+    c.position.set(SHOP_X + 0.7, 0, 5.2 + i * 0.25);
     g.add(c);
   }
-  colliders.push(rect(SHOP_X + 0.7, 4.8, 0.7, 1.3));
-  interactables.push({ label: 'Coger / dejar carro', x: SHOP_X + 1.5, z: 4.8, radius: 1.0, run: () => takeCart(gameRef(), cart) });
-  // congelador isla
+  colliders.push(rect(SHOP_X + 0.7, 5.6, 0.7, 1.5));
+  interactables.push({ label: 'Coger / dejar carro', x: SHOP_X + 1.5, z: 5.6, radius: 1.0, run: () => takeCart(gameRef(), cart) });
+  // congelador isla (centro)
   const freezer = new THREE.Group();
-  freezer.add(box(1.0, 0.85, 2.6, mats.white, 0, 0.425, 0, 0.03));
-  freezer.add(box(0.9, 0.04, 2.5, new THREE.MeshStandardMaterial({ color: '#cfefff', emissive: '#a9dcff', emissiveIntensity: 0.6, transparent: true, opacity: 0.7 }), 0, 0.87, 0));
-  freezer.position.set(5.0, 0, -3.2);
+  freezer.add(box(1.1, 0.85, 3.2, mats.white, 0, 0.425, 0, 0.03));
+  freezer.add(box(1.0, 0.04, 3.1, new THREE.MeshStandardMaterial({ color: '#cfefff', emissive: '#a9dcff', emissiveIntensity: 0.6, transparent: true, opacity: 0.7 }), 0, 0.87, 0));
+  freezer.position.set(6.0, 0, -3.6);
   g.add(freezer);
-  colliders.push(rect(5.0, -3.2, 1.05, 2.65));
-  interactables.push({ label: 'Congelados', x: 4.2, z: -3.2, radius: 1.0, run: () => shelfPanel(gameRef(), cart, 'congelados') });
-  // estantería de snacks
-  const s1 = shelf(3.4, 7);
-  s1.position.set(7.1, 0, -3.0);
+  colliders.push(rect(6.0, -3.6, 1.15, 3.25));
+  interactables.push({ label: 'Congelados', x: 5.0, z: -3.6, radius: 1.0, run: () => shelfPanel(gameRef(), cart, 'congelados') });
+  // dos pasillos largos de snacks
+  const s1 = shelf(4.2, 7);
+  s1.position.set(8.4, 0, -3.3);
   g.add(s1);
-  colliders.push(rect(7.1, -3.0, 0.75, 3.5));
-  interactables.push({ label: 'Snacks y dulces', x: 6.3, z: -3.0, radius: 1.0, run: () => shelfPanel(gameRef(), cart, 'snacks') });
-  // neveras al fondo
+  colliders.push(rect(8.4, -3.3, 0.75, 4.3));
+  interactables.push({ label: 'Snacks y dulces', x: 7.5, z: -3.3, radius: 1.1, run: () => shelfPanel(gameRef(), cart, 'snacks') });
+  const s3 = shelf(4.2, 51); // segundo pasillo (decorativo, da sensación de súper grande)
+  s3.position.set(10.3, 0, -3.3);
+  g.add(s3);
+  colliders.push(rect(10.3, -3.3, 0.75, 4.3));
+  // neveras al fondo (pared norte del súper)
   const fridgeGlass = new THREE.MeshStandardMaterial({ color: '#cfefff', emissive: '#bfe6ff', emissiveIntensity: 0.6, transparent: true, opacity: 0.75 });
-  for (const x of [4.6, 5.8, 7.0, 8.2]) {
+  for (const x of [5.4, 6.6, 7.8, 9.0, 10.2]) {
     g.add(box(1.1, 2, 0.7, mats.white, x, 1, -D / 2 + 0.35, 0.02));
     g.add(box(1.0, 1.7, 0.02, fridgeGlass, x, 1.05, -D / 2 + 0.71));
   }
-  colliders.push(rect(6.4, -D / 2 + 0.35, 4.9, 0.75));
-  interactables.push({ label: 'Neveras de bebidas', x: 6.4, z: -D / 2 + 1.4, radius: 1.3, run: () => shelfPanel(gameRef(), cart, 'bebidas') });
+  colliders.push(rect(7.8, -D / 2 + 0.35, 6.1, 0.75));
+  interactables.push({ label: 'Neveras de bebidas', x: 7.8, z: -D / 2 + 1.4, radius: 1.5, run: () => shelfPanel(gameRef(), cart, 'bebidas') });
   // pasillo de fiesta
-  const s2 = shelf(1.8, 23);
-  s2.position.set(5.0, 0, 0.6);
+  const s2 = shelf(2.4, 23);
+  s2.position.set(6.0, 0, 1.6);
   g.add(s2);
-  colliders.push(rect(5.0, 0.6, 0.75, 1.9));
-  interactables.push({ label: 'Pasillo de fiesta', x: 5.9, z: 0.6, radius: 1.0, run: () => shelfPanel(gameRef(), cart, 'fiesta') });
-  // estanco
-  g.add(box(0.7, 1.05, 2, mats.wood, 8.4, 0.525, 1.0, 0.02));
-  g.add(box(0.6, 1.4, 2, new THREE.MeshStandardMaterial({ color: '#2f6b3a' }), 8.85, 1.75, 1.0));
-  colliders.push(rect(8.5, 1.0, 1.0, 2.1));
-  npc({ name: 'Estanquero', face: 'chulo', skin: '#8d5a3b', hairStyle: 'trenzas', top: 'camiseta', topColor: '#2f6b3a', print: 'ninguno', pants: 'rectos', pantsColor: '#1f2c45', shoes: 'bajas', glasses: 'oscuras' }, 8.75, 1.0, -Math.PI / 2, g, people);
-  interactables.push({ label: 'Estanco', x: 7.6, z: 1.0, radius: 1.0, run: () => shelfPanel(gameRef(), cart, 'estanco') });
+  colliders.push(rect(6.0, 1.6, 0.75, 2.5));
+  interactables.push({ label: 'Pasillo de fiesta', x: 7.0, z: 1.6, radius: 1.0, run: () => shelfPanel(gameRef(), cart, 'fiesta') });
+  // estanco (mostrador al fondo derecha)
+  g.add(box(0.7, 1.05, 2.4, mats.wood, 11.1, 0.525, 1.2, 0.02));
+  g.add(box(0.6, 1.4, 2.4, new THREE.MeshStandardMaterial({ color: '#2f6b3a' }), 11.55, 1.75, 1.2));
+  colliders.push(rect(11.2, 1.2, 1.0, 2.5));
+  npc({ name: 'Estanquero', face: 'chulo', skin: '#8d5a3b', hairStyle: 'trenzas', top: 'camiseta', topColor: '#2f6b3a', print: 'ninguno', pants: 'rectos', pantsColor: '#1f2c45', shoes: 'bajas', glasses: 'oscuras' }, 11.4, 1.2, -Math.PI / 2, g, people);
+  interactables.push({ label: 'Estanco', x: 10.1, z: 1.2, radius: 1.1, run: () => shelfPanel(gameRef(), cart, 'estanco') });
   // vitrina de electrónica (móviles y portátiles) contra la pared del súper
   const vElec = vitrina(2.8, '#2b3a55', ['phone', 'box', 'phone']);
-  vElec.position.set(3.45, 0, -2.4);
+  vElec.position.set(SHOP_X + 0.55, 0, -3.0);
   g.add(vElec);
-  colliders.push(rect(3.45, -2.4, 0.6, 2.85));
+  colliders.push(rect(SHOP_X + 0.55, -3.0, 0.6, 2.85));
   const elecSign = sign('ELECTRÓNICA', 'iPhone · Pixel · portátiles', 1.6, 0.5);
   elecSign.rotation.y = -Math.PI / 2;
-  elecSign.position.set(3.2, 2.2, -2.4);
+  elecSign.position.set(SHOP_X + 0.3, 2.2, -3.0);
   g.add(elecSign);
-  interactables.push({ label: 'Electrónica: móviles y portátiles', x: 4.1, z: -2.4, radius: 1.1, run: () => shelfPanel(gameRef(), cart, 'electronica') });
-  npc({ name: 'Dependiente', face: 'feliz', skin: '#e0b48c', hairStyle: 'degradado', top: 'camiseta', topColor: '#2b3a55', print: 'ninguno', pants: 'rectos', pantsColor: '#1f2c45', shoes: 'bajas', glasses: 'pasta' }, 4.3, -1.0, -Math.PI / 2, g, people);
+  interactables.push({ label: 'Electrónica: móviles y portátiles', x: SHOP_X + 1.2, z: -3.0, radius: 1.1, run: () => shelfPanel(gameRef(), cart, 'electronica') });
+  npc({ name: 'Dependiente', face: 'feliz', skin: '#e0b48c', hairStyle: 'degradado', top: 'camiseta', topColor: '#2b3a55', print: 'ninguno', pants: 'rectos', pantsColor: '#1f2c45', shoes: 'bajas', glasses: 'pasta' }, SHOP_X + 1.4, -1.6, -Math.PI / 2, g, people);
   // armería (atrezzo/airsoft con licencia): vitrina acristalada y cerrada
   const vArm = vitrina(2.4, '#3a2b2b', ['gun', 'box', 'gun']);
-  vArm.position.set(3.45, 0, 0.9);
+  vArm.position.set(SHOP_X + 0.55, 0, 0.3);
   g.add(vArm);
-  colliders.push(rect(3.45, 0.9, 0.6, 2.45));
+  colliders.push(rect(SHOP_X + 0.55, 0.3, 0.6, 2.45));
   const armSign = sign('ARMERÍA', 'airsoft y atrezzo · con licencia', 1.6, 0.5);
   armSign.rotation.y = -Math.PI / 2;
-  armSign.position.set(3.2, 2.2, 0.9);
+  armSign.position.set(SHOP_X + 0.3, 2.2, 0.3);
   g.add(armSign);
-  interactables.push({ label: 'Armería (atrezzo con licencia)', x: 4.1, z: 0.9, radius: 1.1, run: () => shelfPanel(gameRef(), cart, 'armeria') });
-  // caja atendida
-  g.add(box(2.2, 0.95, 0.7, mats.white, 6.4, 0.475, 3.6, 0.02));
-  g.add(box(2.2, 0.05, 0.75, mats.plastic, 6.4, 0.97, 3.6));
-  g.add(box(0.35, 0.25, 0.05, mats.plastic, 6.8, 1.15, 3.85));
-  colliders.push(rect(6.4, 3.6, 2.3, 0.8));
-  npc({ name: 'Cajero', face: 'normal', skin: '#8d5a3b', hairStyle: 'rapado', top: 'camiseta', topColor: '#c0392b', print: 'ninguno', pants: 'rectos', pantsColor: '#1f2c45', shoes: 'bajas', glasses: 'ninguna' }, 6.4, 4.3, Math.PI, g, people);
-  interactables.push({ label: 'Caja: pagar la compra', x: 6.4, z: 2.8, radius: 1.1, run: () => checkoutPanel(gameRef(), cart) });
-  // autocajas (self-checkout)
-  for (const ax of [4.2, 5.1]) {
+  interactables.push({ label: 'Armería (atrezzo con licencia)', x: SHOP_X + 1.2, z: 0.3, radius: 1.1, run: () => shelfPanel(gameRef(), cart, 'armeria') });
+  // línea de cajas (frente a la salida): una atendida + tres autocajas
+  g.add(box(2.2, 0.95, 0.7, mats.white, 9.6, 0.475, 4.8, 0.02));
+  g.add(box(2.2, 0.05, 0.75, mats.plastic, 9.6, 0.97, 4.8));
+  g.add(box(0.35, 0.25, 0.05, mats.plastic, 10.0, 1.15, 5.05));
+  colliders.push(rect(9.6, 4.8, 2.3, 0.8));
+  npc({ name: 'Cajero', face: 'normal', skin: '#8d5a3b', hairStyle: 'rapado', top: 'camiseta', topColor: '#c0392b', print: 'ninguno', pants: 'rectos', pantsColor: '#1f2c45', shoes: 'bajas', glasses: 'ninguna' }, 9.6, 5.5, Math.PI, g, people);
+  interactables.push({ label: 'Caja: pagar la compra', x: 9.6, z: 4.0, radius: 1.1, run: () => checkoutPanel(gameRef(), cart) });
+  for (const ax of [5.0, 6.0, 7.0] as const) {
     const sc = selfCheckout();
-    sc.position.set(ax, 0, 3.7);
+    sc.position.set(ax, 0, 4.9);
     g.add(sc);
-    colliders.push(rect(ax, 3.7, 0.6, 0.5));
+    colliders.push(rect(ax, 4.9, 0.6, 0.5));
+    interactables.push({ label: 'Autocaja: escanea y paga', x: ax, z: 4.1, radius: 0.9, run: () => checkoutPanel(gameRef(), cart) });
   }
-  interactables.push({ label: 'Autocaja: escanea y paga', x: 4.65, z: 2.9, radius: 1.1, run: () => checkoutPanel(gameRef(), cart) });
 
   // luces
   g.add(new THREE.HemisphereLight('#fff4e6', '#4c4640', 0.65));

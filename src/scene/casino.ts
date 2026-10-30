@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { PRESETS } from '../characters/catalog';
 import { Character } from '../characters/Character';
 import type { CharacterConfig } from '../characters/types';
-import { barPanel, blackjackPanel, cashierPanel, pokerPanel, roulettePanel, slotsMenu, sportsbook, sportsbookPanel } from '../game/casino';
+import { baccaratPanel, barPanel, blackjackPanel, cashierPanel, crazyTimePanel, pokerPanel, roulettePanel, slotsMenu, sportsbook, sportsbookPanel } from '../game/casino';
 import { CASINO_NAME } from '../game/config';
 import { button, el, euros } from '../game/hud';
 import { rect, type Floor, type Game, type Interactable, type Rect } from '../game/world';
@@ -185,6 +185,40 @@ function slotMachine(i: number) {
   return g;
 }
 
+// Stand de Crazy Time: rueda vertical gigante de colores sobre un pódium,
+// con una tira de luces alrededor. Devuelve el grupo y la rueda (gira sola).
+function crazyTimeStand() {
+  const g = new THREE.Group();
+  g.add(box(2.2, 0.5, 1.4, darkWood, 0, 0.25, 0, 0.05)); // pódium
+  g.add(box(2.0, 0.04, 1.2, felt, 0, 0.5, 0));
+  g.add(cyl(0.12, 2.4, mats.steel, 0, 1.2, -0.5)); // mástil
+  const { tex } = canvasTex(256, 256, (ctx) => {
+    const cols = ['#f2c94c', '#6fcf97', '#f2994a', '#eb5757', '#2d9cdb', '#9b51e0', '#219653', '#bb6bd9'];
+    const n = 54;
+    for (let i = 0; i < n; i++) {
+      ctx.beginPath(); ctx.moveTo(128, 128);
+      ctx.arc(128, 128, 126, (i / n) * Math.PI * 2, ((i + 1) / n) * Math.PI * 2);
+      ctx.fillStyle = cols[i % cols.length]; ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.stroke();
+    }
+    const gr = ctx.createRadialGradient(118, 118, 8, 128, 128, 36);
+    gr.addColorStop(0, '#f6d365'); gr.addColorStop(1, '#8a5a12');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(128, 128, 36, 0, Math.PI * 2); ctx.fill();
+  });
+  const wheel = new THREE.Mesh(new THREE.CircleGeometry(1.0, 54), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.4, emissive: '#2a1a06', emissiveIntensity: 0.25 }));
+  wheel.position.set(0, 2.0, -0.42);
+  g.add(wheel);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(1.02, 0.06, 10, 48), gold);
+  rim.position.set(0, 2.0, -0.42);
+  g.add(rim);
+  // puntero arriba
+  const ptr = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.22, 4), new THREE.MeshStandardMaterial({ color: '#fff', emissive: '#fff', emissiveIntensity: 0.6 }));
+  ptr.rotation.x = Math.PI;
+  ptr.position.set(0, 3.05, -0.42);
+  g.add(ptr);
+  return { g, wheel };
+}
+
 function chandelier() {
   const g = new THREE.Group();
   const crystal = new THREE.MeshStandardMaterial({ color: '#fff6d8', emissive: '#ffd98a', emissiveIntensity: 1.6 });
@@ -318,6 +352,30 @@ export function createCasino(gameRef: () => Game): Floor {
     gambler(x, z + 1.5, Math.PI, g, people);
     interactables.push({ label: 'Mesa de póker', x, z: z + 1.6, radius: 1.2, run: () => pokerPanel(gameRef()) });
   });
+  // Crazy Time: stand con rueda gigante en el centro-sur (zona de show)
+  const ct = crazyTimeStand();
+  ct.g.position.set(0, 0, 3.2);
+  ct.g.rotation.y = Math.PI;
+  g.add(ct.g);
+  colliders.push(rect(0, 3.2, 2.3, 1.5));
+  croupier(0, 2.3, 0, g, people, 1);
+  interactables.push({ label: 'Crazy Time', x: 0, z: 1.8, radius: 1.5, run: () => crazyTimePanel(gameRef()) });
+  const ctSign = signPlane('CRAZY TIME', 'rueda del dinero · bonus', 1.8, 0.56);
+  ctSign.position.set(0, 3.5, 4.0);
+  g.add(ctSign);
+  // Speed Baccarat: mesa al oeste-sur
+  const bacT = cardTable('blackjack');
+  bacT.position.set(-6.0, 0, 3.0);
+  g.add(bacT);
+  colliders.push(rect(-6.0, 3.3, 2.4, 1.3));
+  croupier(-6.0, 2.2, 0, g, people, 3);
+  gambler(-6.7, 3.9, Math.PI + 0.3, g, people);
+  gambler(-5.3, 3.9, Math.PI - 0.3, g, people);
+  interactables.push({ label: 'Speed Baccarat', x: -6.0, z: 4.3, radius: 1.2, run: () => baccaratPanel(gameRef()) });
+  const bacSign = signPlane('BACCARAT', 'punto y banca en directo', 1.6, 0.5);
+  bacSign.position.set(-6.0, 3.4, 1.9);
+  g.add(bacSign);
+
   // fila de tragaperras en la pared oeste
   for (let i = 0; i < 8; i++) {
     const s = slotMachine(i);
@@ -483,6 +541,7 @@ export function createCasino(gameRef: () => Game): Floor {
       for (const p of people) p.update(dt);
       elevator.update(dt);
       for (const w of wheels) w.rotation.z += dt * 1.5;
+      ct.wheel.rotation.z += dt * 0.5;
       screenTimer += dt;
       if (screenTimer > 0.1) {
         screenTimer = 0;

@@ -253,3 +253,48 @@ select.field { width: auto; }
 .bj-hand { padding: 6px; border-radius: 10px; }
 .bj-hand.on { background: rgba(242,193,78,.18); outline: 1px solid var(--accent); }
 .bj-val { align-self: center; font: 800 16px Inter, sans-serif; color: var(--accent); margin-left: 6px; }
+
+/* --- Crazy Time --- */
+.ct-wheel { display: block; margin: 6px auto; width: 230px; height: 230px; }
+.ct-topslot { text-align: center; font: 700 13px Inter, sans-serif; letter-spacing: .5px; padding: 6px; margin: 2px 0 6px; border-radius: 10px; background: linear-gradient(135deg, #1a1030, #3a1550); color: #f6d365; }
+.ct-topslot b { color: #fff; }
+.ct-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0; }
+.ct-cell { border: 0; border-radius: 10px; padding: 8px 4px; color: #1a1205; font: 800 15px Inter, sans-serif; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 48px; }
+.ct-cell.bonus { color: #fff; font-size: 10px; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+.ct-cell .ct-stake { font: 700 11px Inter, sans-serif; min-height: 13px; }
+.ct-coins { text-align: center; font: 800 18px Inter, sans-serif; letter-spacing: 1px; margin: 10px 0; color: var(--accent); }
+.ct-hunt { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+
+/* --- Baccarat --- */
+.baccarat { display: grid; grid-template-columns: 1fr; gap: 6px; margin: 8px 0; }
+.bc-side { font: 800 13px Inter, sans-serif; color: var(--accent); letter-spacing: .5px; }
+.bc-side.banca { color: #eb5757; }
+.bc-pick { flex: 1; }
+.bc-pick.on { outline: 2px solid var(--accent); box-shadow: 0 0 10px rgba(242,193,78,.5); }
+
+/* --- app Casino --- */
+.casino-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; background: linear-gradient(135deg, #2a0a12, #5a0f1a); margin-bottom: 10px; }
+.casino-head small { display: block; opacity: .7; font-size: 11px; }
+.casino-head b { font: 800 18px Inter, sans-serif; color: #f6d365; }
+.casino-apps { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.casino-tile { border: 0; border-radius: 14px; padding: 12px; background: rgba(255,255,255,.06); color: #fff; cursor: pointer; display: flex; flex-direction: column; gap: 2px; text-align: left; }
+.casino-tile .ci { font-size: 24px; }
+.casino-tile b { font: 800 14px Inter, sans-serif; }
+.casino-tile small { opacity: .65; font-size: 11px; }
+
+/* --- app Noticias --- */
+.news-list { display: flex; flex-direction: column; gap: 8px; }
+.news-item { display: grid; grid-template-columns: 28px 1fr; gap: 8px; padding: 10px; border-radius: 12px; background: rgba(0,0,0,.05); }
+.news-ic { font-size: 20px; }
+.news-meta { grid-column: 2; display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; }
+.news-cat { font-weight: 700; opacity: .8; }
+
+/* --- app Chat --- */
+.chat-feed { display: flex; flex-direction: column; gap: 6px; max-height: 340px; overflow-y: auto; padding: 4px; }
+.chat-msg { display: flex; flex-direction: column; align-items: flex-start; max-width: 80%; }
+.chat-msg.me { align-self: flex-end; align-items: flex-end; }
+.chat-who { font: 700 11px Inter, sans-serif; opacity: .7; margin: 0 6px 2px; }
+.chat-bubble { padding: 8px 12px; border-radius: 16px; background: rgba(0,0,0,.08); font-size: 14px; }
+.chat-msg.me .chat-bubble { background: linear-gradient(135deg, #5ff777, #1fb73c); color: #06270f; }
+.chat-input { display: flex; gap: 8px; margin-top: 10px; }
+.chat-input .field { flex: 1; }

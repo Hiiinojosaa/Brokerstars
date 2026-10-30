@@ -1,3 +1,4 @@
+import { baccaratPanel, blackjackPanel, cashierPanel, crazyTimePanel, pokerPanel, roulettePanel, slotsMenu, sportsbookPanel } from './casino';
 import { BANK_NAME, LOAN_OFFERS } from './config';
 import { button, el, euros } from './hud';
 import type { Market } from './market';
@@ -247,6 +248,106 @@ export function messagesApp(phone: Phone, game: Game): PhoneApp {
     id: 'mensajes', name: 'Mensajes', icon: '💬', color: 'linear-gradient(135deg,#5ff777,#1fb73c)', dock: true, light: true,
     badge: () => game.state.unread,
     render: (body) => phone.renderMessages(body),
+  };
+}
+
+// Casino en el móvil: juega desde cualquier planta a los mismos juegos
+export function casinoApp(game: Game): PhoneApp {
+  const GAMES: { icon: string; name: string; sub: string; run: () => void }[] = [
+    { icon: '🎡', name: 'Crazy Time', sub: 'Rueda del dinero + bonus', run: () => crazyTimePanel(game) },
+    { icon: '🃏', name: 'Speed Baccarat', sub: 'Jugador · Banca · Empate', run: () => baccaratPanel(game) },
+    { icon: '🎯', name: 'Ruleta', sub: 'Europea, bola física', run: () => roulettePanel(game) },
+    { icon: '🂡', name: 'Blackjack', sub: '3:2 · split y seguro', run: () => blackjackPanel(game) },
+    { icon: '🎰', name: 'Tragaperras', sub: '3 máquinas propias', run: () => slotsMenu(game) },
+    { icon: '♠️', name: 'Póker', sub: 'contra la casa', run: () => pokerPanel(game) },
+    { icon: '⚽', name: 'Apuestas', sub: 'partidos en directo', run: () => sportsbookPanel(game) },
+  ];
+  return {
+    id: 'casino', name: 'Casino', icon: '🎰', color: 'linear-gradient(135deg,#f6d365,#b3202a)',
+    render: (body) => {
+      const chips = game.state.data.chips;
+      const head = el('div', 'casino-head');
+      head.innerHTML = `<div><small>Fichas</small><b>🪙 ${chips.toLocaleString('es-ES')}</b></div>`;
+      head.append(button('Caja', () => { game.phone.toggle(false); cashierPanel(game); }, 'btn ghost small'));
+      body.append(head);
+      const grid = el('div', 'casino-apps');
+      for (const gm of GAMES) {
+        const b = el('button', 'casino-tile');
+        b.innerHTML = `<span class="ci">${gm.icon}</span><b>${gm.name}</b><small>${gm.sub}</small>`;
+        b.onclick = () => { game.phone.toggle(false); gm.run(); };
+        grid.append(b);
+      }
+      body.append(grid, el('p', 'muted', 'Juega desde aquí o en vivo en la Planta 3. Todo con fichas del casino.'));
+    },
+  };
+}
+
+// Noticias: feed de todo lo que pasa (mercado, tienda, casino, lado gris…)
+export function newsApp(game: Game): PhoneApp {
+  const CAT: Record<string, string> = { mercado: '📈 Mercado', tienda: '📦 Tienda', casino: '🎰 Casino', gris: '🕶️ Gris', banco: '🏦 Banco', ciudad: '🏙️ Ciudad' };
+  return {
+    id: 'noticias', name: 'Noticias', icon: '📰', color: 'linear-gradient(135deg,#ff8a5b,#d7263d)', light: true,
+    badge: () => 0,
+    render: (body) => {
+      const news = game.state.data.news;
+      if (!news.length) { body.append(el('p', 'muted', 'Todavía no ha pasado nada. Haz negocios y aquí saldrá todo.')); return; }
+      const list = el('div', 'news-list');
+      for (const n of news.slice(0, 40)) {
+        const row = el('div', 'news-item');
+        row.append(
+          el('span', 'news-ic', n.icon),
+          el('span', 'news-body', n.text),
+        );
+        const meta = el('div', 'news-meta');
+        meta.append(el('span', 'news-cat', CAT[n.cat] ?? n.cat), el('span', 'muted', game.state.clock(n.t)));
+        row.append(meta);
+        list.append(row);
+      }
+      body.append(list);
+    },
+  };
+}
+
+// Chat con los colegas (local; con multijugador llegará del servidor)
+const CHAT_BOTS = ['Marcos', 'Lucía', 'Dani', 'Sofía'];
+export function chatApp(game: Game): PhoneApp {
+  return {
+    id: 'chat', name: 'Colegas', icon: '🗨️', color: 'linear-gradient(135deg,#7f7fd5,#2d9cdb)', light: true,
+    badge: () => 0,
+    render: (body) => {
+      const feed = el('div', 'chat-feed');
+      const paint = () => {
+        feed.innerHTML = '';
+        for (const m of game.state.data.chat.slice(-40)) {
+          const row = el('div', 'chat-msg' + (m.me ? ' me' : ''));
+          if (!m.me) row.append(el('span', 'chat-who', m.from));
+          row.append(el('span', 'chat-bubble', m.text));
+          feed.append(row);
+        }
+        feed.scrollTop = feed.scrollHeight;
+      };
+      paint();
+      const barEl = el('div', 'chat-input');
+      const input = el('input', 'field') as HTMLInputElement;
+      input.placeholder = 'Escribe a los colegas…';
+      const send = () => {
+        const text = input.value.trim();
+        if (!text) return;
+        game.state.chatSay('Tú', text, true);
+        input.value = '';
+        paint();
+        // respuesta de un colega (placeholder hasta el multijugador real)
+        setTimeout(() => {
+          const who = CHAT_BOTS[Math.floor(Math.random() * CHAT_BOTS.length)];
+          const replies = ['jajaja brutal', 'paso ahora por tu edificio', 'cuánto llevas hoy?', 'yo con el dropshipping a tope', 'subo al casino, te vienes?', 'me han embargado el préstamo 💀', 'tengo método nuevo, luego te cuento'];
+          game.state.chatSay(who, replies[Math.floor(Math.random() * replies.length)]);
+          paint();
+        }, 900 + Math.random() * 900);
+      };
+      input.onkeydown = (e) => { if (e.key === 'Enter') send(); };
+      barEl.append(input, button('Enviar', send, 'btn small'));
+      body.append(feed, barEl, el('p', 'muted', 'Chat local por ahora. Con el multijugador verás a tus colegas de verdad y os pasaréis métodos.'));
+    },
   };
 }
 

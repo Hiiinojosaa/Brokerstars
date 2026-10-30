@@ -10,7 +10,7 @@ import { createLobby } from '../scene/lobby';
 import { createOffice } from '../scene/office';
 import { loadSaved } from '../ui/creator';
 import { sportsbook } from './casino';
-import { bankApp, messagesApp, settingsApp, walletApp } from './apps';
+import { bankApp, casinoApp, chatApp, messagesApp, newsApp, settingsApp, walletApp } from './apps';
 import { storeApp, storeTick } from './dropship';
 import { Hud, button, el, euros } from './hud';
 import { Input } from './input';
@@ -114,12 +114,21 @@ player.place(0, 4.4, Math.PI);
 // --- móvil: apps de los negocios ---
 phone.addApp(storeApp(game));
 phone.addApp(messagesApp(phone, game));
+phone.addApp(casinoApp(game));
+phone.addApp(newsApp(game));
+phone.addApp(chatApp(game));
 phone.addApp(bankApp(game));
 phone.addApp(walletApp(game, market));
 phone.addApp(settingsApp(game));
 market.newsListener((text) => {
+  state.addNews('mercado', '📈', text);
   if (state.data.positions.length || floor?.level === 1) phone.notify('📰 Noticias del mercado', text);
 });
+// algo de ambiente en el chat la primera vez
+if (!state.data.chat.length) {
+  state.chatSay('Marcos', '¿subimos al casino luego? han puesto el Crazy Time 🎡');
+  state.chatSay('Lucía', 'yo cerrando ventas, en 10 min subo');
+}
 
 // --- acciones comunes ---
 function inventoryPanel() {

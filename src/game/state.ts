@@ -137,6 +137,22 @@ export interface Position {
   entry: number;
 }
 
+// entrada del feed de noticias (todo lo que pasa en la torre)
+export interface NewsItem {
+  t: number;
+  icon: string;
+  cat: 'mercado' | 'tienda' | 'casino' | 'gris' | 'banco' | 'ciudad';
+  text: string;
+}
+
+// mensaje del chat con los colegas (de momento local; listo para multijugador)
+export interface ChatMsg {
+  t: number;
+  from: string;
+  text: string;
+  me?: boolean;
+}
+
 export interface StoreProduct {
   id: string;
   name: string;
@@ -224,6 +240,9 @@ interface SaveData {
   // stock de cada producto del súper; se repone cada día
   stock: Record<string, number>;
   stockDay: number;
+  // feed de noticias y chat de colegas
+  news: NewsItem[];
+  chat: ChatMsg[];
 }
 
 const KEY = 'brokerstars.partida.v2';
@@ -242,6 +261,7 @@ function fresh(): SaveData {
     mules: [], deliveries: [], victims: 0, owned: [],
     pin: String(1000 + Math.floor(Math.random() * 9000)), stock: {}, stockDay: 0,
     wallet: {}, cardBlocked: false, phoneModel: 'iPhone 18 Pro', laptop: '', weapon: '',
+    news: [], chat: [],
   };
 }
 
@@ -307,6 +327,20 @@ export class GameState {
 
   get unread() {
     return this.data.messages.filter((m) => !m.read).length;
+  }
+
+  // --- noticias: feed de todo lo que pasa en la torre ---
+  addNews(cat: NewsItem['cat'], icon: string, text: string) {
+    this.data.news.unshift({ t: this.data.time, icon, cat, text });
+    this.data.news = this.data.news.slice(0, 80);
+    this.changed();
+  }
+
+  // --- chat con los colegas (local; con multijugador llegará del servidor) ---
+  chatSay(from: string, text: string, me = false) {
+    this.data.chat.push({ t: this.data.time, from, text, me });
+    this.data.chat = this.data.chat.slice(-120);
+    this.changed();
   }
 
   // --- objetivos ---

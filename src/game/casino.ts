@@ -372,6 +372,244 @@ export function blackjackPanel(game: Game) {
   });
 }
 
+// --- Crazy Time: rueda del dinero con top slot y 4 bonus ---
+interface CtSeg { key: string; label: string; color: string; pay: number; bonus?: boolean }
+const CT_TYPES: Record<string, CtSeg> = {
+  '1': { key: '1', label: '1', color: '#f2c94c', pay: 1 },
+  '2': { key: '2', label: '2', color: '#6fcf97', pay: 2 },
+  '5': { key: '5', label: '5', color: '#f2994a', pay: 5 },
+  '10': { key: '10', label: '10', color: '#eb5757', pay: 10 },
+  coin: { key: 'coin', label: 'Coin Flip', color: '#2d9cdb', pay: 0, bonus: true },
+  pachinko: { key: 'pachinko', label: 'Pachinko', color: '#9b51e0', pay: 0, bonus: true },
+  cash: { key: 'cash', label: 'Cash Hunt', color: '#219653', pay: 0, bonus: true },
+  crazy: { key: 'crazy', label: 'Crazy Time', color: '#bb6bd9', pay: 0, bonus: true },
+};
+// reparto de las 54 casillas de la rueda (como el juego real)
+const CT_WHEEL: string[] = [];
+for (const [k, n] of [['1', 21], ['2', 13], ['5', 7], ['10', 4], ['coin', 4], ['pachinko', 2], ['cash', 2], ['crazy', 1]] as const) {
+  for (let i = 0; i < n; i++) CT_WHEEL.push(k);
+}
+// entrelaza para que no salgan juntas
+CT_WHEEL.sort(() => Math.random() - 0.5);
+
+export function crazyTimePanel(game: Game) {
+  const { hud } = game;
+  const bets: Record<string, number> = {};
+  let spinning = false;
+  const history: string[] = [];
+  hud.openPanel('Crazy Time', (body) => {
+    const bar = chipBar(game);
+    const sel = betSelector([1, 5, 25, 100, 500]);
+    const canvas = el('canvas', 'ct-wheel') as HTMLCanvasElement;
+    canvas.width = canvas.height = 260;
+    const topslot = el('div', 'ct-topslot');
+    const result = el('div', 'muted', 'Apuesta a un número o a un bonus y gira la rueda');
+    const grid = el('div', 'ct-grid');
+    const cells: Record<string, HTMLElement> = {};
+    const order = ['1', '2', '5', '10', 'coin', 'pachinko', 'cash', 'crazy'];
+    for (const k of order) {
+      const t = CT_TYPES[k];
+      const c = el('button', 'ct-cell' + (t.bonus ? ' bonus' : ''));
+      c.style.background = t.color;
+      c.innerHTML = `<b>${t.label}</b><span class="ct-stake"></span>`;
+      c.onclick = () => {
+        if (spinning) return;
+        const v = sel.get();
+        if (!spend(game, v)) return;
+        bets[k] = (bets[k] ?? 0) + v;
+        c.querySelector('.ct-stake')!.textContent = `🪙 ${bets[k]}`;
+        bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
+      };
+      cells[k] = c;
+      grid.append(c);
+    }
+    const seg = (Math.PI * 2) / CT_WHEEL.length;
+    const draw = (angle: number) => {
+      const ctx = canvas.getContext('2d')!;
+      const R = 125, c = 130;
+      ctx.clearRect(0, 0, 260, 260);
+      ctx.beginPath(); ctx.arc(c, c, R + 3, 0, Math.PI * 2); ctx.fillStyle = '#2a1a06'; ctx.fill();
+      CT_WHEEL.forEach((k, i) => {
+        const t = CT_TYPES[k];
+        ctx.beginPath(); ctx.moveTo(c, c);
+        ctx.arc(c, c, R, angle + i * seg, angle + (i + 1) * seg);
+        ctx.fillStyle = t.color; ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.save(); ctx.translate(c, c);
+        ctx.rotate(angle + (i + 0.5) * seg + Math.PI / 2);
+        ctx.fillStyle = t.bonus ? '#fff' : '#1a1205';
+        ctx.font = `800 ${t.bonus ? 8 : 13}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(t.bonus ? t.label.split(' ')[0].toUpperCase() : t.label, 0, -R + 16);
+        ctx.restore();
+      });
+      ctx.beginPath(); ctx.arc(c, c, 34, 0, Math.PI * 2);
+      const gr = ctx.createRadialGradient(c - 10, c - 10, 5, c, c, 34);
+      gr.addColorStop(0, '#f6d365'); gr.addColorStop(1, '#8a5a12');
+      ctx.fillStyle = gr; ctx.fill();
+      // puntero arriba
+      ctx.beginPath(); ctx.moveTo(c, 6); ctx.lineTo(c - 11, 26); ctx.lineTo(c + 11, 26); ctx.closePath();
+      ctx.fillStyle = '#fff'; ctx.strokeStyle = '#111'; ctx.lineWidth = 2; ctx.fill(); ctx.stroke();
+    };
+    let angle = 0;
+    draw(angle);
+
+    const runBonus = (k: string, done: (mult: number) => void) => {
+      hud.openPanel(CT_TYPES[k].label + ' · BONUS', (bb) => {
+        if (k === 'coin') {
+          const red = 2 + Math.floor(Math.random() * 40), blue = 2 + Math.floor(Math.random() * 60);
+          bb.append(el('p', '', 'Se lanza la moneda…'), el('div', 'ct-coins', `🔴 x${red}   🔵 x${blue}`));
+          setTimeout(() => done(Math.random() < 0.5 ? red : blue), 1200);
+        } else if (k === 'pachinko') {
+          const mults = [5, 10, 2, 25, 4, 15, 8];
+          bb.append(el('p', '', 'Cae el disco por el Pachinko…'), el('div', 'ct-coins', mults.map((m) => `x${m}`).join('  ')));
+          setTimeout(() => done(mults[Math.floor(Math.random() * mults.length)]), 1400);
+        } else if (k === 'cash') {
+          bb.append(el('p', '', '¡Dispara a un símbolo! (elige uno)'));
+          const wrap = el('div', 'ct-hunt');
+          const opts = Array.from({ length: 9 }, () => 3 + Math.floor(Math.random() * 50));
+          opts.forEach((m) => {
+            const b = button('🎯', () => done(m), 'btn small');
+            wrap.append(b);
+          });
+          bb.append(wrap);
+        } else {
+          // Crazy Time: rueda gigante con multiplicadores enormes
+          const big = [20, 50, 100, 40, 60, 200, 30, 80];
+          bb.append(el('p', '', '¡CRAZY TIME! La rueda gigante decide…'), el('div', 'ct-coins', big.map((m) => `x${m}`).join('  ')));
+          setTimeout(() => done(big[Math.floor(Math.random() * big.length)]), 1600);
+        }
+      });
+    };
+
+    // top slot: multiplica un tipo al azar antes de girar
+    let topType = order[Math.floor(Math.random() * 4)];
+    let topMult = [2, 3, 4, 5, 7, 10][Math.floor(Math.random() * 6)];
+    const paintTop = () => { topslot.innerHTML = `TOP SLOT · <b>${CT_TYPES[topType].label}</b> × <b>${topMult}</b>`; };
+    paintTop();
+
+    const spinBtn = button('🎡 ¡Girar!', () => {
+      if (spinning) return;
+      if (!Object.keys(bets).length) return hud.toast('Pon fichas en algún sitio', 'bad');
+      spinning = true; spinBtn.disabled = true;
+      const idx = Math.floor(Math.random() * CT_WHEEL.length);
+      const winner = CT_WHEEL[idx];
+      const targetAngle = -Math.PI / 2 - (idx + 0.5) * seg; // casilla bajo el puntero
+      const turns = 5 + Math.random() * 2;
+      const start = angle;
+      const end = targetAngle - Math.PI * 2 * turns;
+      const T0 = performance.now();
+      const dur = 4200;
+      const anim = (now: number) => {
+        const p = Math.min(1, (now - T0) / dur);
+        const e = 1 - Math.pow(1 - p, 3);
+        angle = start + (end - start) * e;
+        draw(angle);
+        if (p < 1) return requestAnimationFrame(anim);
+        history.unshift(winner);
+        const pay = (mult: number) => {
+          const stake = bets[winner] ?? 0;
+          let topBoost = topType === winner ? topMult : 1;
+          const won = stake * mult * topBoost;
+          if (won) win(game, won);
+          result.innerHTML = `Sale <b>${CT_TYPES[winner].label}</b>${topBoost > 1 ? ` (TOP ×${topMult})` : ''} · ${won ? `¡GANAS ${chips(won)}! 🎉` : 'nada para ti'} <span class="muted">· ${history.slice(0, 12).map((h) => CT_TYPES[h].label[0]).join(' ')}</span>`;
+          for (const k of order) { delete bets[k]; cells[k].querySelector('.ct-stake')!.textContent = ''; }
+          bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
+          spinning = false; spinBtn.disabled = false;
+          topType = order[Math.floor(Math.random() * 4)];
+          topMult = [2, 3, 4, 5, 7, 10][Math.floor(Math.random() * 6)];
+          paintTop();
+        };
+        if (CT_TYPES[winner].bonus) {
+          if (bets[winner]) {
+            runBonus(winner, (mult) => {
+              // reabrimos el panel principal con el premio ya pagado
+              const stake = bets[winner];
+              const won = stake * mult * (topType === winner ? topMult : 1);
+              win(game, won);
+              game.state.addNews('casino', '🎰', `¡Bonus ${CT_TYPES[winner].label} en Crazy Time! Premio ×${mult} = ${chips(won)}.`);
+              crazyTimePanel(game);
+              game.hud.toast(`${CT_TYPES[winner].label}: ×${mult} · +${chips(won)}`, 'ok');
+            });
+          } else {
+            result.textContent = `Sale ${CT_TYPES[winner].label} pero no habías apostado ahí.`;
+            for (const k of order) { delete bets[k]; cells[k].querySelector('.ct-stake')!.textContent = ''; }
+            spinning = false; spinBtn.disabled = false;
+          }
+        } else pay(CT_TYPES[winner].pay);
+      };
+      requestAnimationFrame(anim);
+    });
+
+    body.append(bar, topslot, canvas, el('div', 'muted', 'Valor de la ficha:'), sel.row, grid, spinBtn, result);
+  });
+}
+
+// --- Speed Baccarat (punto y banca) ---
+const bacValue = (h: Card[]) => h.reduce((s, c) => s + (c.r >= 10 ? (c.r === 14 ? 1 : 0) : c.r), 0) % 10;
+
+export function baccaratPanel(game: Game) {
+  const { hud } = game;
+  let bet: 'jugador' | 'banca' | 'empate' | null = null;
+  const history: string[] = [];
+  hud.openPanel('Speed Baccarat', (body) => {
+    const bar = chipBar(game);
+    const sel = betSelector([5, 25, 100, 500, 1000]);
+    const table = el('div', 'baccarat');
+    const pRow = el('div', 'hand');
+    const bRow = el('div', 'hand');
+    const msg = el('div', 'muted', 'Apuesta: Jugador (1:1), Banca (0,95:1) o Empate (8:1).');
+    const picks = el('div', 'row');
+    const mkPick = (k: 'jugador' | 'banca' | 'empate', label: string) => button(label, () => { bet = k; paint(); }, 'bc-pick');
+    const pick = { jugador: mkPick('jugador', 'JUGADOR'), banca: mkPick('banca', 'BANCA'), empate: mkPick('empate', 'EMPATE 8:1') };
+    picks.append(pick.jugador, pick.banca, pick.empate);
+    const paint = () => {
+      for (const k of ['jugador', 'banca', 'empate'] as const) pick[k].classList.toggle('on', bet === k);
+    };
+    const deal = button('Repartir', () => {
+      if (!bet) return hud.toast('Elige dónde apuestas', 'bad');
+      const stake = sel.get();
+      if (!spend(game, stake)) return;
+      const d = deck();
+      const player = [d.pop()!, d.pop()!];
+      const banker = [d.pop()!, d.pop()!];
+      // reglas de la tercera carta
+      const pv0 = bacValue(player), bv0 = bacValue(banker);
+      const natural = pv0 >= 8 || bv0 >= 8;
+      let pThird: Card | null = null;
+      if (!natural) {
+        if (pv0 <= 5) { pThird = d.pop()!; player.push(pThird); }
+        const bv = bacValue(banker);
+        const pt = pThird ? (pThird.r >= 10 ? (pThird.r === 14 ? 1 : 0) : pThird.r) : null;
+        let bankerDraws = false;
+        if (pThird === null) bankerDraws = bv <= 5;
+        else if (bv <= 2) bankerDraws = true;
+        else if (bv === 3) bankerDraws = pt !== 8;
+        else if (bv === 4) bankerDraws = pt! >= 2 && pt! <= 7;
+        else if (bv === 5) bankerDraws = pt! >= 4 && pt! <= 7;
+        else if (bv === 6) bankerDraws = pt! === 6 || pt! === 7;
+        if (bankerDraws) banker.push(d.pop()!);
+      }
+      const pv = bacValue(player), bv = bacValue(banker);
+      const winner = pv > bv ? 'jugador' : bv > pv ? 'banca' : 'empate';
+      pRow.innerHTML = ''; player.forEach((c) => pRow.append(cardEl(c)));
+      pRow.append(el('span', 'bj-val', String(pv)));
+      bRow.innerHTML = ''; banker.forEach((c) => bRow.append(cardEl(c)));
+      bRow.append(el('span', 'bj-val', String(bv)));
+      let won = 0;
+      if (winner === bet) won = bet === 'empate' ? stake * 9 : bet === 'banca' ? Math.floor(stake * 1.95) : stake * 2;
+      else if (winner === 'empate' && bet !== 'empate') won = stake; // empate devuelve la apuesta en jugador/banca
+      if (won) win(game, won);
+      history.unshift(winner[0].toUpperCase());
+      msg.innerHTML = `Gana <b>${winner}</b> (${pv}-${bv}) · ${won ? `+${chips(won)} 🎉` : 'pierdes'} <span class="muted">· ${history.slice(0, 14).join(' ')}</span>`;
+      bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
+    });
+    table.append(el('div', 'bc-side', 'Jugador'), pRow, el('div', 'bc-side banca', 'Banca'), bRow);
+    body.append(bar, table, msg, el('div', 'muted', 'Valor de la ficha:'), sel.row, picks, deal);
+    paint();
+  });
+}
+
 // --- tragaperras: tres máquinas propias, cada una con su mecánica ---
 interface SlotGame {
   id: string;
