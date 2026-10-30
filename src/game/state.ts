@@ -12,7 +12,7 @@ import {
 // negocios y necesidades. Se guarda en el navegador; con multijugador lo
 // llevará el servidor.
 
-export type Shelf = 'congelados' | 'snacks' | 'bebidas' | 'fiesta' | 'estanco' | 'otros';
+export type Shelf = 'congelados' | 'snacks' | 'bebidas' | 'fiesta' | 'estanco' | 'electronica' | 'armeria' | 'otros';
 
 export interface Item {
   id: string;
@@ -28,15 +28,21 @@ export interface Item {
   effect?: Effect;
   // no se vende (se consigue de otra forma)
   hidden?: boolean;
+  // objeto de ocio: se "usa" con animación en vez de comerse
+  ocio?: 'globo' | 'fumar' | 'bong';
+  // equipable: se queda contigo (móvil, portátil o algo que se lleva en la mano)
+  equip?: 'arma' | 'movil' | 'portatil';
 }
 
-export type Effect = 'purpura' | 'risa' | 'relax' | 'subidon';
+export type Effect = 'purpura' | 'risa' | 'relax' | 'subidon' | 'volado' | 'mareo';
 
 export const EFFECTS: Record<Effect, { name: string; icon: string; minutes: number; text: string }> = {
   purpura: { name: 'Púrpura', icon: '💜', minutes: 120, text: 'Todo va a cámara lenta y morado' },
   risa: { name: 'Gas de la risa', icon: '🎈', minutes: 30, text: 'No puedes parar de reír' },
   relax: { name: 'Relajado', icon: '🌿', minutes: 180, text: 'Más ánimo, menos concentración' },
   subidon: { name: 'Subidón', icon: '⚡', minutes: 90, text: 'Energía a tope' },
+  volado: { name: 'Volado', icon: '😶‍🌫️', minutes: 150, text: 'Todo más lento y con humo' },
+  mareo: { name: 'Mareo', icon: '🥴', minutes: 60, text: 'Se te va un poco la vista' },
 };
 
 export const ITEMS: Record<string, Item> = {
@@ -65,17 +71,38 @@ export const ITEMS: Record<string, Item> = {
   cafe_lata: { id: 'cafe_lata', name: 'Café en lata', icon: '☕', price: 1.5, shelf: 'bebidas', energy: 20 },
   // fiesta
   jarabe: { id: 'jarabe', name: 'Jarabe para la tos (morado)', icon: '🧪', price: 7.5, shelf: 'fiesta' },
-  globos: { id: 'globos', name: 'Globos de gas de la risa (x3)', icon: '🎈', price: 9, shelf: 'fiesta', effect: 'risa' },
+  globos: { id: 'globos', name: 'Globos de gas de la risa (x3)', icon: '🎈', price: 9, shelf: 'fiesta', effect: 'risa', ocio: 'globo' },
   purpura: { id: 'purpura', name: 'Púrpura (jarabe + Sprunk)', icon: '💜', price: 0, shelf: 'fiesta', energy: -5, effect: 'purpura', hidden: true },
-  // estanco
-  hierba: { id: 'hierba', name: 'Hierba (1 g)', icon: '🌿', price: 10, shelf: 'estanco', effect: 'relax', hunger: -10 },
-  papel: { id: 'papel', name: 'Papel de liar', icon: '📄', price: 1, shelf: 'estanco' },
+  bong: { id: 'bong', name: 'Bong de cristal', icon: '🧫', price: 35, shelf: 'fiesta', ocio: 'bong', effect: 'volado' },
+  // estanco: tabaco, liar y variedades para rolear con los colegas
+  tabaco: { id: 'tabaco', name: 'Bolsa de tabaco de liar', icon: '🚬', price: 9, shelf: 'estanco' },
+  cigarros: { id: 'cigarros', name: 'Paquete de cigarros', icon: '🚬', price: 6, shelf: 'estanco', ocio: 'fumar', effect: 'mareo' },
+  papel: { id: 'papel', name: 'Papel de liar + filtros', icon: '📄', price: 1.5, shelf: 'estanco' },
+  mechero: { id: 'mechero', name: 'Mechero', icon: '🔥', price: 1.5, shelf: 'estanco', equip: 'arma' },
+  hierba: { id: 'hierba', name: 'Cogollo (1 g)', icon: '🌿', price: 10, shelf: 'estanco' },
+  polen: { id: 'polen', name: 'Polen (1 g)', icon: '🟫', price: 12, shelf: 'estanco' },
+  bho: { id: 'bho', name: 'Extracción BHO (0,5 g)', icon: '🍯', price: 25, shelf: 'estanco' },
+  porro: { id: 'porro', name: 'Porro liado', icon: '🚬', price: 0, shelf: 'estanco', ocio: 'fumar', effect: 'volado', hunger: -8, hidden: true },
+  // electrónica: móviles y portátiles para trabajar en cualquier sitio
+  iphone: { id: 'iphone', name: 'iPhone 18 Pro', icon: '📱', price: 1399, shelf: 'electronica', equip: 'movil' },
+  iphone_max: { id: 'iphone_max', name: 'iPhone 18 Pro Max Titanio', icon: '📱', price: 1899, shelf: 'electronica', equip: 'movil' },
+  pixel: { id: 'pixel', name: 'Pixel 10 Pro', icon: '📱', price: 999, shelf: 'electronica', equip: 'movil' },
+  portatil: { id: 'portatil', name: 'Portátil MacBook Pro', icon: '💻', price: 2499, shelf: 'electronica', equip: 'portatil' },
+  portatil_gamer: { id: 'portatil_gamer', name: 'Portátil gaming RTX', icon: '💻', price: 1799, shelf: 'electronica', equip: 'portatil' },
+  // armería (airsoft / atrezzo para rolear; no hacen daño real en el juego)
+  pistola: { id: 'pistola', name: 'Pistola de airsoft', icon: '🔫', price: 180, shelf: 'armeria', equip: 'arma' },
+  bate: { id: 'bate', name: 'Bate de béisbol', icon: '🏏', price: 45, shelf: 'armeria', equip: 'arma' },
+  navaja: { id: 'navaja', name: 'Navaja multiusos', icon: '🔪', price: 30, shelf: 'armeria', equip: 'arma' },
   // otros
   tarjeta: { id: 'tarjeta', name: `Tarjeta de débito ${BANK_NAME}`, icon: '💳', price: 0, shelf: 'otros', hidden: true },
 };
 
 // Recetas: dos cosas del inventario se mezclan en una.
-export const RECIPES = [{ a: 'jarabe', b: 'sprunk', result: 'purpura' }];
+export const RECIPES = [
+  { a: 'jarabe', b: 'sprunk', result: 'purpura' },
+  { a: 'hierba', b: 'papel', result: 'porro' },
+  { a: 'polen', b: 'papel', result: 'porro' },
+];
 
 export interface Movement {
   t: number;
@@ -191,6 +218,9 @@ interface SaveData {
   wallet: Record<string, number>;
   cardBlocked: boolean;
   phoneModel: string;
+  // portátil equipado (para trabajar en cualquier sitio) y arma/atrezzo en mano
+  laptop: string;
+  weapon: string;
   // stock de cada producto del súper; se repone cada día
   stock: Record<string, number>;
   stockDay: number;
@@ -211,7 +241,7 @@ function fresh(): SaveData {
     sales: 0, pendingCommission: 0, calledLeads: [], positions: [], tradingPnl: 0, store: [], storeName: '', heat: 0,
     mules: [], deliveries: [], victims: 0, owned: [],
     pin: String(1000 + Math.floor(Math.random() * 9000)), stock: {}, stockDay: 0,
-    wallet: {}, cardBlocked: false, phoneModel: 'iPhone 18 Pro',
+    wallet: {}, cardBlocked: false, phoneModel: 'iPhone 18 Pro', laptop: '', weapon: '',
   };
 }
 
@@ -499,6 +529,37 @@ export class GameState {
 
   activeEffects() {
     return (Object.entries(this.data.effects) as [Effect, number][]).filter(([, until]) => until > this.data.time);
+  }
+
+  // equipa un objeto (móvil, portátil o arma/atrezzo); se gasta una unidad del inventario
+  equip(id: string): string | null {
+    const item = ITEMS[id];
+    if (!item?.equip) return 'Esto no se equipa';
+    if (!this.data.inventory[id]) return 'No lo tienes';
+    if (item.equip === 'movil') this.data.phoneModel = item.name;
+    else if (item.equip === 'portatil') this.data.laptop = item.name;
+    else this.data.weapon = item.name;
+    this.changed();
+    return null;
+  }
+
+  // "usa" un objeto de ocio (globo, fumar, bong). Fumar requiere mechero.
+  // Devuelve un error, o null si va bien (la animación la lanza la escena).
+  useOcio(id: string): string | null {
+    const item = ITEMS[id];
+    if (!item?.ocio) return 'Esto no se fuma';
+    if (!this.data.inventory[id]) return 'No te queda';
+    if ((item.ocio === 'fumar' || item.ocio === 'bong') && !this.data.inventory['mechero']) {
+      return 'Necesitas un mechero (está en el estanco)';
+    }
+    // el bong es una herramienta reutilizable; lo demás se gasta al usarlo
+    if (item.ocio !== 'bong') this.removeItem(id);
+    const d = this.data;
+    if (item.hunger) d.hunger = Math.max(0, Math.min(100, d.hunger + item.hunger));
+    if (item.energy) d.energy = Math.max(0, Math.min(100, d.energy + item.energy));
+    if (item.effect) d.effects[item.effect] = d.time + EFFECTS[item.effect].minutes;
+    this.changed();
+    return null;
   }
 
   // --- trabajo ---

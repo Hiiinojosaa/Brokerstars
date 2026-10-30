@@ -91,6 +91,69 @@ function shelf(len: number, seed: number) {
   return g;
 }
 
+// vitrina de cristal con baldas iluminadas: para electrónica y armería.
+// `items` son cajitas/figuras de colores sobre las baldas.
+function vitrina(len: number, color: string, kinds: ('box' | 'phone' | 'gun')[]) {
+  const g = new THREE.Group();
+  const frame = new THREE.MeshStandardMaterial({ color, roughness: 0.4, metalness: 0.5 });
+  const glass = new THREE.MeshStandardMaterial({ color: '#bfe6ff', transparent: true, opacity: 0.18, roughness: 0.05, metalness: 0.1 });
+  const led = new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#eaf6ff', emissiveIntensity: 1.1 });
+  g.add(box(0.55, 0.1, len, frame, 0, 0.05, 0)); // base
+  g.add(box(0.55, 0.05, len, frame, 0, 1.75, 0)); // techo
+  for (const s of [-1, 1]) g.add(box(0.03, 1.7, len, glass, s * 0.26, 0.9, 0)); // caras de cristal
+  g.add(box(0.03, 1.7, 0.03, frame, 0, 0.9, -len / 2), box(0.03, 1.7, 0.03, frame, 0, 0.9, len / 2));
+  const palette = ['#e74c3c', '#f1c40f', '#2ecc71', '#3498db', '#9b59b6', '#1abc9c'];
+  let n = kinds.length * 13 + len;
+  for (let level = 0; level < 3; level++) {
+    const y = 0.35 + level * 0.5;
+    g.add(box(0.5, 0.03, len - 0.1, frame, 0, y - 0.03, 0)); // balda
+    g.add(box(0.5, 0.01, len - 0.1, led, 0, y - 0.08, 0)); // tira led bajo la balda
+    let z = -len / 2 + 0.2;
+    while (z < len / 2 - 0.2) {
+      n = (n * 9301 + 49297) % 233280;
+      const kind = kinds[n % kinds.length];
+      const col = new THREE.MeshStandardMaterial({ color: palette[n % palette.length], roughness: 0.5, metalness: 0.2 });
+      if (kind === 'phone') {
+        const p = box(0.012, 0.26, 0.13, new THREE.MeshStandardMaterial({ color: '#111', roughness: 0.2, metalness: 0.4 }), 0, y + 0.13, z);
+        p.rotation.z = Math.PI / 2;
+        g.add(p);
+        z += 0.3;
+      } else if (kind === 'gun') {
+        g.add(box(0.26, 0.08, 0.04, new THREE.MeshStandardMaterial({ color: '#2b2b2f', roughness: 0.4, metalness: 0.6 }), 0, y + 0.14, z));
+        g.add(box(0.05, 0.12, 0.04, new THREE.MeshStandardMaterial({ color: '#2b2b2f', roughness: 0.4 }), -0.08, y + 0.05, z));
+        z += 0.42;
+      } else {
+        const w = 0.18 + (n % 3) * 0.05;
+        g.add(box(0.26, 0.14 + (n % 4) * 0.04, w, col, 0, y + 0.1, z));
+        z += w + 0.08;
+      }
+    }
+  }
+  return g;
+}
+
+// kiosco de autocobro (autocaja) con pantalla táctil y luz de estado
+function selfCheckout() {
+  const g = new THREE.Group();
+  g.add(box(0.6, 1.0, 0.5, new THREE.MeshStandardMaterial({ color: '#e8e8ea', roughness: 0.6 }), 0, 0.5, 0, 0.03));
+  const scr = canvasTex(128, 96, (ctx) => {
+    ctx.fillStyle = '#0a2a1a';
+    ctx.fillRect(0, 0, 128, 96);
+    ctx.fillStyle = '#7CF1B0';
+    ctx.font = '800 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('AUTOCAJA', 64, 42);
+    ctx.font = '11px sans-serif';
+    ctx.fillText('Escanea y paga', 64, 66);
+  });
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.3), glow(scr, 0.8));
+  screen.position.set(0, 1.15, 0.12);
+  screen.rotation.x = -0.5;
+  g.add(screen);
+  g.add(box(0.08, 0.5, 0.08, new THREE.MeshStandardMaterial({ color: '#2ecc71', emissive: '#2ecc71', emissiveIntensity: 1.3 }), 0, 1.6, -0.1)); // baliza
+  return g;
+}
+
 function cartModel() {
   const g = new THREE.Group();
   const wire = new THREE.MeshStandardMaterial({ color: '#c9ced6', metalness: 0.8, roughness: 0.3, wireframe: true });
@@ -302,13 +365,42 @@ export function createLobby(gameRef: () => Game): Floor {
   colliders.push(rect(8.5, 1.0, 1.0, 2.1));
   npc({ name: 'Estanquero', face: 'chulo', skin: '#8d5a3b', hairStyle: 'trenzas', top: 'camiseta', topColor: '#2f6b3a', print: 'ninguno', pants: 'rectos', pantsColor: '#1f2c45', shoes: 'bajas', glasses: 'oscuras' }, 8.75, 1.0, -Math.PI / 2, g, people);
   interactables.push({ label: 'Estanco', x: 7.6, z: 1.0, radius: 1.0, run: () => shelfPanel(gameRef(), cart, 'estanco') });
-  // caja
-  g.add(box(2.4, 0.95, 0.7, mats.white, 6.0, 0.475, 3.6, 0.02));
-  g.add(box(2.4, 0.05, 0.75, mats.plastic, 6.0, 0.97, 3.6));
-  g.add(box(0.35, 0.25, 0.05, mats.plastic, 6.4, 1.15, 3.85));
-  colliders.push(rect(6.0, 3.6, 2.5, 0.8));
-  npc({ name: 'Cajero', face: 'normal', skin: '#8d5a3b', hairStyle: 'rapado', top: 'camiseta', topColor: '#c0392b', print: 'ninguno', pants: 'rectos', pantsColor: '#1f2c45', shoes: 'bajas', glasses: 'ninguna' }, 6.0, 4.3, Math.PI, g, people);
-  interactables.push({ label: 'Caja: pagar la compra', x: 6.0, z: 2.8, radius: 1.1, run: () => checkoutPanel(gameRef(), cart) });
+  // vitrina de electrónica (móviles y portátiles) contra la pared del súper
+  const vElec = vitrina(2.8, '#2b3a55', ['phone', 'box', 'phone']);
+  vElec.position.set(3.45, 0, -2.4);
+  g.add(vElec);
+  colliders.push(rect(3.45, -2.4, 0.6, 2.85));
+  const elecSign = sign('ELECTRÓNICA', 'iPhone · Pixel · portátiles', 1.6, 0.5);
+  elecSign.rotation.y = -Math.PI / 2;
+  elecSign.position.set(3.2, 2.2, -2.4);
+  g.add(elecSign);
+  interactables.push({ label: 'Electrónica: móviles y portátiles', x: 4.1, z: -2.4, radius: 1.1, run: () => shelfPanel(gameRef(), cart, 'electronica') });
+  npc({ name: 'Dependiente', face: 'feliz', skin: '#e0b48c', hairStyle: 'degradado', top: 'camiseta', topColor: '#2b3a55', print: 'ninguno', pants: 'rectos', pantsColor: '#1f2c45', shoes: 'bajas', glasses: 'pasta' }, 4.3, -1.0, -Math.PI / 2, g, people);
+  // armería (atrezzo/airsoft con licencia): vitrina acristalada y cerrada
+  const vArm = vitrina(2.4, '#3a2b2b', ['gun', 'box', 'gun']);
+  vArm.position.set(3.45, 0, 0.9);
+  g.add(vArm);
+  colliders.push(rect(3.45, 0.9, 0.6, 2.45));
+  const armSign = sign('ARMERÍA', 'airsoft y atrezzo · con licencia', 1.6, 0.5);
+  armSign.rotation.y = -Math.PI / 2;
+  armSign.position.set(3.2, 2.2, 0.9);
+  g.add(armSign);
+  interactables.push({ label: 'Armería (atrezzo con licencia)', x: 4.1, z: 0.9, radius: 1.1, run: () => shelfPanel(gameRef(), cart, 'armeria') });
+  // caja atendida
+  g.add(box(2.2, 0.95, 0.7, mats.white, 6.4, 0.475, 3.6, 0.02));
+  g.add(box(2.2, 0.05, 0.75, mats.plastic, 6.4, 0.97, 3.6));
+  g.add(box(0.35, 0.25, 0.05, mats.plastic, 6.8, 1.15, 3.85));
+  colliders.push(rect(6.4, 3.6, 2.3, 0.8));
+  npc({ name: 'Cajero', face: 'normal', skin: '#8d5a3b', hairStyle: 'rapado', top: 'camiseta', topColor: '#c0392b', print: 'ninguno', pants: 'rectos', pantsColor: '#1f2c45', shoes: 'bajas', glasses: 'ninguna' }, 6.4, 4.3, Math.PI, g, people);
+  interactables.push({ label: 'Caja: pagar la compra', x: 6.4, z: 2.8, radius: 1.1, run: () => checkoutPanel(gameRef(), cart) });
+  // autocajas (self-checkout)
+  for (const ax of [4.2, 5.1]) {
+    const sc = selfCheckout();
+    sc.position.set(ax, 0, 3.7);
+    g.add(sc);
+    colliders.push(rect(ax, 3.7, 0.6, 0.5));
+  }
+  interactables.push({ label: 'Autocaja: escanea y paga', x: 4.65, z: 2.9, radius: 1.1, run: () => checkoutPanel(gameRef(), cart) });
 
   // luces
   g.add(new THREE.HemisphereLight('#fff4e6', '#4c4640', 0.65));

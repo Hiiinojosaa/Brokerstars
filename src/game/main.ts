@@ -130,10 +130,30 @@ function inventoryPanel() {
     for (const [id, n] of entries) {
       const item = ITEMS[id];
       const row = el('div', 'item');
-      const usable = !!(item.hunger || item.energy || item.effect);
-      row.append(el('span', 'icon', item.icon), el('span', '', `${item.name} × ${n}`), el('span', 'muted', item.heatsInto ? 'congelado' : ''));
+      row.append(el('span', 'icon', item.icon), el('span', '', `${item.name} × ${n}`));
       if (item.heatsInto) row.append(el('span', 'muted', 'al microondas'));
-      else if (usable) {
+      else if (item.ocio) {
+        const verb = item.ocio === 'globo' ? 'Inflar globo' : item.ocio === 'bong' ? 'Dar una calada' : 'Encender';
+        row.append(button(verb, () => {
+          const err = state.useOcio(id);
+          if (err) hud.toast(err, 'bad');
+          else {
+            player.ocio(item.ocio!);
+            hud.toast(item.effect ? `${EFFECTS[item.effect].icon} ${EFFECTS[item.effect].text}` : `${item.icon} ${item.name}`, 'ok');
+          }
+          inventoryPanel();
+        }));
+      } else if (item.equip) {
+        const equipped = (item.equip === 'movil' && state.data.phoneModel === item.name)
+          || (item.equip === 'portatil' && state.data.laptop === item.name)
+          || (item.equip === 'arma' && state.data.weapon === item.name);
+        row.append(button(equipped ? 'Equipado ✓' : 'Equipar', () => {
+          const err = state.equip(id);
+          if (err) hud.toast(err, 'bad');
+          else hud.toast(`${item.icon} ${item.name} equipado`, 'ok');
+          inventoryPanel();
+        }, equipped ? 'btn ghost' : 'btn'));
+      } else if (item.hunger || item.energy || item.effect) {
         row.append(button('Consumir', () => {
           const err = state.consume(id);
           if (err) hud.toast(err, 'bad');

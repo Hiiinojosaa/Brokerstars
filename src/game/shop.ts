@@ -14,6 +14,8 @@ export const SHELF_NAMES: Record<Shelf, string> = {
   bebidas: 'Bebidas frías',
   fiesta: 'Fiesta',
   estanco: 'Estanco',
+  electronica: 'Electrónica',
+  armeria: 'Armería',
   otros: 'Otros',
 };
 
@@ -21,6 +23,8 @@ export class ShopCart {
   items: Record<string, number> = {};
   active = false;
   private mesh: THREE.Group | null = null;
+  // montón de productos que se ve dentro de la cesta
+  private pile: THREE.Group | null = null;
 
   get total() {
     return Object.entries(this.items).reduce((sum, [id, n]) => sum + ITEMS[id].price * n, 0);
@@ -30,40 +34,81 @@ export class ShopCart {
     return Object.values(this.items).reduce((a, b) => a + b, 0);
   }
 
-  // carro de la compra que va delante del personaje
+  // carro de la compra grande que va POR DELANTE del personaje (no lo pisa):
+  // la cesta arranca en z≈0.95 y el asa queda justo al alcance de las manos
   attach(root: THREE.Object3D) {
     if (this.mesh) return;
     const g = new THREE.Group();
-    const wire = new THREE.MeshStandardMaterial({ color: '#c9ced6', metalness: 0.8, roughness: 0.3, wireframe: true });
-    const solid = new THREE.MeshStandardMaterial({ color: '#c9ced6', metalness: 0.8, roughness: 0.3 });
-    const red = new THREE.MeshStandardMaterial({ color: '#d63a2f', roughness: 0.5 });
-    const basket = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 0.8, 4, 3, 5), wire);
-    basket.position.set(0, 0.78, 0.62);
+    const wire = new THREE.MeshStandardMaterial({ color: '#d2d7df', metalness: 0.85, roughness: 0.3, wireframe: true });
+    const solid = new THREE.MeshStandardMaterial({ color: '#d2d7df', metalness: 0.85, roughness: 0.3 });
+    const red = new THREE.MeshStandardMaterial({ color: '#d63a2f', roughness: 0.4 });
+    const dark = new THREE.MeshStandardMaterial({ color: '#222', roughness: 0.6 });
+    // cesta grande, inclinada: más alta por detrás (hacia el asa) que por delante
+    const basket = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.5, 0.9, 5, 3, 6), wire);
+    basket.position.set(0, 0.82, 1.0);
+    basket.rotation.x = -0.12;
     g.add(basket);
-    const bottom = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.02, 0.8), solid);
-    bottom.position.set(0, 0.56, 0.62);
+    const bottom = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.02, 0.9), solid);
+    bottom.position.set(0, 0.56, 1.02);
+    bottom.rotation.x = -0.12;
     g.add(bottom);
-    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.6, 8), red);
+    // montón de productos (se rellena en refill)
+    this.pile = new THREE.Group();
+    this.pile.position.set(0, 0.62, 1.0);
+    g.add(this.pile);
+    // asa roja al alcance de las dos manos
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.62, 10), red);
     handle.rotation.z = Math.PI / 2;
-    handle.position.set(0, 1.02, 0.18);
+    handle.position.set(0, 1.04, 0.5);
     g.add(handle);
-    for (const [x, z] of [[-0.22, 0.3], [0.22, 0.3], [-0.22, 0.95], [0.22, 0.95]]) {
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.04, 12), new THREE.MeshStandardMaterial({ color: '#222' }));
+    // bastidor en diagonal del asa a la cesta
+    for (const s of [-1, 1]) {
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.62, 6), solid);
+      bar.position.set(s * 0.31, 0.92, 0.72);
+      bar.rotation.x = 0.7;
+      g.add(bar);
+    }
+    for (const [x, z] of [[-0.27, 0.6], [0.27, 0.6], [-0.27, 1.35], [0.27, 1.35]]) {
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.045, 12), dark);
       wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(x, 0.05, z);
+      wheel.position.set(x, 0.06, z);
       g.add(wheel);
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.5, 6), solid);
-      leg.position.set(x, 0.32, z);
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.52, 6), solid);
+      leg.position.set(x, 0.33, z);
       g.add(leg);
     }
     this.mesh = g;
     root.add(g);
     this.active = true;
+    this.refill();
+  }
+
+  // apila cajitas de colores en la cesta, una por producto (hasta ~18)
+  refill() {
+    if (!this.pile) return;
+    for (const c of [...this.pile.children]) {
+      (c as THREE.Mesh).geometry?.dispose?.();
+      this.pile.remove(c);
+    }
+    const ids: string[] = [];
+    for (const [id, n] of Object.entries(this.items)) for (let i = 0; i < n; i++) ids.push(id);
+    const show = ids.slice(0, 18);
+    show.forEach((id, i) => {
+      const hue = Math.abs([...id].reduce((a, c) => a * 31 + c.charCodeAt(0), 7)) % 360;
+      const m = new THREE.MeshStandardMaterial({ color: new THREE.Color(`hsl(${hue},62%,58%)`), roughness: 0.6 });
+      const w = 0.14 + (i % 3) * 0.03;
+      const box = new THREE.Mesh(new THREE.BoxGeometry(w, 0.1 + (i % 2) * 0.05, w), m);
+      const col = i % 4, row = Math.floor(i / 4);
+      box.position.set(-0.21 + col * 0.14, row * 0.09, -0.3 + (i % 5) * 0.14);
+      box.rotation.y = (hue / 180) * Math.PI;
+      this.pile!.add(box);
+    });
   }
 
   detach() {
     this.mesh?.removeFromParent();
     this.mesh = null;
+    this.pile = null;
     this.active = false;
     this.items = {};
   }
@@ -78,6 +123,7 @@ export function takeCart(game: Game, cart: ShopCart) {
   }
   cart.attach(game.player.character.root);
   game.player.slow = true;
+  game.player.character.pose = 'carro';
   game.hud.toast('🛒 Carro listo: llénalo en las estanterías y paga en caja', 'ok');
 }
 
@@ -98,12 +144,14 @@ export function shelfPanel(game: Game, cart: ShopCart, shelf: Shelf) {
         cart.items[item.id] = inCart - 1;
         if (!cart.items[item.id]) delete cart.items[item.id];
         state.data.stock[item.id] = stock + 1;
+        cart.refill();
         shelfPanel(game, cart, shelf);
       }, 'btn ghost small');
       minus.disabled = !inCart;
       const plus = button('+', () => {
         if (!state.takeStock(item.id)) return hud.toast('No queda en la estantería', 'bad');
         cart.items[item.id] = inCart + 1;
+        cart.refill();
         shelfPanel(game, cart, shelf);
       }, 'btn small');
       plus.disabled = stock <= 0;

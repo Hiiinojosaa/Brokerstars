@@ -169,9 +169,36 @@ Mapa de la torre y Cámara (fotos para presumir).
   dropshipping con ventas al móvil, supervisor que paga comisiones, sala de
   reuniones y cocina. Planta 2: PC con Sender, Banca y Telegram, mulas que
   pagan en cripto o traen el efectivo a la Planta 0, mesa OTC, rigs de
-  minado y busca policial. Planta 3: ruleta, blackjack, póker, tragaperras,
-  apuestas a partidos reales en 5 min, bar y boutique de lujo. Móvil con
-  banco, mensajes (objetivos), tienda y trading.
+  minado y busca policial. Planta 3: ruleta con bola física, 3 tragaperras
+  propias (Broker Fruits, Golden Vegas, Crypto Cascade), blackjack con split
+  y seguro, póker, apuestas a partidos reales en 5 min, bar y boutique de
+  lujo, con jugadores NPC variados en las mesas. Móvil estilo iPhone
+  (Dynamic Island, widgets, apps) con banco potente, Wallet de cripto,
+  mensajes (objetivos), tienda y ajustes.
+- [x] **Demo 0.3:** MegaMart ampliado: vitrinas por tipo de producto
+  (congelados, snacks, bebidas, fiesta, estanco, **electrónica** y
+  **armería**), carro grande que se lleva por delante con las dos manos y
+  con los productos apilados a la vista, más cajas y **autocajas**. Productos
+  de ocio para rolear con los colegas: globos de la risa que se inflan,
+  tabaco y cigarros, liar (papel + cogollo/polen → porro), BHO y bong, con
+  animación de humo y globo sobre el personaje. Electrónica: compras iPhone,
+  Pixel o portátil y se equipan (el móvil cambia de modelo). Armería de
+  airsoft/atrezzo (con licencia, sin daño real en el juego).
+
+### Visión: de una torre a una ciudad (multi-edificio)
+La demo es **una torre**. El objetivo a medio plazo es una **ciudad** donde
+cada grupo de amigos tiene **su propio edificio** (su torre), y se visita a
+los demás:
+- **Tu edificio** es tu base: oficina, Planta Gris, casino y súper propios.
+- **Visitar otros edificios** para aprender o copiar métodos (trading,
+  dropshipping, estafas, hacking) y hacer negocios entre grupos.
+- **Dropshipping colaborativo**: montar tiendas en común entre varios
+  jugadores de edificios distintos y repartir beneficios.
+- **El hacker** puede atacar otros edificios (p. ej. sacar un PIN) como
+  mecánica PvP controlada y consentida entre grupos.
+- **La ciudad** tiene víctimas/NPC y calles que conectan los edificios.
+- Todo sigue siendo **ficción de videojuego**: las mecánicas del lado oscuro
+  se mantienen abstractas (sin datos ni pasos reales), como en GTA Online.
 - [ ] **Fase 2:** multijugador con colegas (servidor) y chat de voz
 - [ ] **Fase 3:** multijugador (servidor Node + Colyseus) y chat de voz de proximidad
 - [ ] **Fase 4:** primeros roles jugables: broker y dropshipper

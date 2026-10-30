@@ -8,7 +8,7 @@ import { billTexture, denimTexture, fabricTexture, faceTexture, jacketTexture, s
 // estrechan y sombreado suave. El origen está en los pies y mira hacia +Z.
 // Brazos y piernas cuelgan de pivotes para poder animarlos.
 
-export type Pose = 'quieto' | 'presentacion' | 'pose' | 'brazos_cruzados' | 'billetes' | 'sentado';
+export type Pose = 'quieto' | 'presentacion' | 'pose' | 'brazos_cruzados' | 'billetes' | 'sentado' | 'carro';
 
 // Altura del asiento de una silla de oficina, para la pose 'sentado'.
 export const SEAT_HEIGHT = 0.5;
@@ -319,6 +319,7 @@ export class Character {
     this.root.add(this.body);
     this.upper = new THREE.Group();
     this.legs = [];
+    this.ocioProp = null;
   }
 
   private build() {
@@ -744,6 +745,14 @@ export class Character {
         }
         break;
       }
+      case 'carro':
+        // empujando el carro: los dos brazos hacia delante y abajo al asa
+        for (const [a, s] of [[left, -1], [right, 1]] as const) {
+          a.root.rotation.set(-1.15, -s * 0.18, s * 0.05);
+          a.joint.rotation.set(-0.3, 0, 0);
+          a.hand.rotation.set(-0.5, 0, 0);
+        }
+        break;
       case 'billetes':
         // las dos manos delante de la cara sujetando el abanico
         for (const [a, s] of [[left, -1], [right, 1]] as const) {
@@ -789,8 +798,9 @@ export class Character {
     this.head.rotation.y = Math.sin(this.time * 0.6) * 0.08;
     this.head.rotation.x = Math.sin(this.time * 0.9) * 0.02;
     this.applyPose(breath * 0.02);
-    if (this.walk > 0.01 && this.pose === 'quieto') this.applyWalk(dt);
+    if (this.walk > 0.01 && (this.pose === 'quieto' || this.pose === 'carro')) this.applyWalk(dt);
     else this.body.position.y = this.pose === 'sentado' ? this.body.position.y : 0;
+    this.updateOcio(dt);
   }
 
   // ciclo de andar: piernas y brazos en oposición y un pequeño rebote
@@ -806,10 +816,82 @@ export class Character {
       // la rodilla se dobla cuando la pierna va hacia atrás
       leg.joint.rotation.x = Math.max(0, Math.sin(p + i * Math.PI - 1.2)) * (0.7 + run * 0.6);
     });
-    const { left, right } = this.arms;
-    left.root.rotation.x = Math.sin(p) * swing * 0.8;
-    right.root.rotation.x = -Math.sin(p) * swing * 0.8;
-    left.joint.rotation.x = right.joint.rotation.x = -0.3 - run * 0.7;
+    // con el carro los brazos siguen en el asa; solo se balancean andando normal
+    if (this.pose !== 'carro') {
+      const { left, right } = this.arms;
+      left.root.rotation.x = Math.sin(p) * swing * 0.8;
+      right.root.rotation.x = -Math.sin(p) * swing * 0.8;
+      left.joint.rotation.x = right.joint.rotation.x = -0.3 - run * 0.7;
+    }
     this.body.position.y = Math.abs(Math.cos(p)) * (0.025 + run * 0.02);
+  }
+
+  // --- ocio: globo que se infla, humo del tabaco/porro, calada del bong ---
+  private ocioProp: THREE.Group | null = null;
+  private ocioT = 0;
+  private ocioKind: 'globo' | 'fumar' | 'bong' = 'fumar';
+
+  ocio(kind: 'globo' | 'fumar' | 'bong') {
+    this.clearOcio();
+    this.ocioKind = kind;
+    this.ocioT = 0;
+    const g = new THREE.Group();
+    // a la altura de la boca, un poco por delante de la cara
+    g.position.set(0, HEAD_Y * HEAD_SIZE - 0.02, 0.16);
+    if (kind === 'globo') {
+      const balloon = ball(0.12, new THREE.MeshStandardMaterial({ color: '#58c6ff', roughness: 0.3, transparent: true, opacity: 0.85 }), 1, 1.2, 1);
+      balloon.position.set(0.12, 0.18, 0);
+      balloon.name = 'balloon';
+      g.add(balloon);
+    } else {
+      const tool = kind === 'bong'
+        ? at(limb(0.03, 0.045, 0.18, mat('#9fe3ff', 0.2)), 0.08, -0.02, 0.02)
+        : at(capsule(0.012, 0.09, mat('#f3efe6', 0.6)), 0.06, 0, 0.04);
+      if (kind === 'fumar') tool.rotation.z = 0.4;
+      g.add(tool);
+      // brasa
+      g.add(at(ball(0.012, new THREE.MeshStandardMaterial({ color: '#ff6a2a', emissive: '#ff4400', emissiveIntensity: 2 })), kind === 'bong' ? 0.08 : 0.1, kind === 'bong' ? 0.07 : 0.02, 0.04));
+    }
+    this.upper.add(g);
+    this.ocioProp = g;
+  }
+
+  private puff(x: number, y: number, z: number) {
+    if (!this.ocioProp) return;
+    const s = ball(0.03, new THREE.MeshStandardMaterial({ color: '#dfe3e8', transparent: true, opacity: 0.6, depthWrite: false }));
+    s.position.set(x, y, z);
+    s.userData.life = 0;
+    s.name = 'puff';
+    this.ocioProp.add(s);
+  }
+
+  private clearOcio() {
+    if (!this.ocioProp) return;
+    this.ocioProp.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
+    this.ocioProp.removeFromParent();
+    this.ocioProp = null;
+  }
+
+  private updateOcio(dt: number) {
+    if (!this.ocioProp) return;
+    this.ocioT += dt;
+    if (this.ocioKind === 'globo') {
+      const b = this.ocioProp.getObjectByName('balloon');
+      if (b) b.scale.setScalar(Math.min(1.6, 0.4 + this.ocioT * 1.4));
+    } else if (this.ocioT < 2 && Math.random() < dt * 6) {
+      this.puff(0.08 + Math.random() * 0.05, 0.08, 0.05);
+    }
+    // humo que sube y se desvanece
+    for (const o of [...this.ocioProp.children]) {
+      if (o.name !== 'puff') continue;
+      o.userData.life += dt;
+      o.position.y += dt * 0.25;
+      o.position.x += dt * 0.05;
+      o.scale.addScalar(dt * 0.6);
+      const mm = (o as THREE.Mesh).material as THREE.MeshStandardMaterial;
+      mm.opacity = Math.max(0, 0.6 - o.userData.life * 0.4);
+      if (o.userData.life > 1.6) { (o as THREE.Mesh).geometry.dispose(); o.removeFromParent(); }
+    }
+    if (this.ocioT > 3.2) this.clearOcio();
   }
 }

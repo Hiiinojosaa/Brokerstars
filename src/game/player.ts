@@ -49,6 +49,11 @@ export class Player {
     this.sync();
   }
 
+  // lanza la animación de ocio (globo, fumar, bong) en el personaje
+  ocio(kind: 'globo' | 'fumar' | 'bong') {
+    this.character.ocio(kind);
+  }
+
   stand() {
     if (!this.seated) return;
     this.seated = false;
