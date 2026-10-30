@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { PRESETS } from '../characters/catalog';
 import { Character } from '../characters/Character';
 import type { CharacterConfig } from '../characters/types';
-import { baccaratPanel, barPanel, blackjackPanel, cashierPanel, crazyTimePanel, pokerPanel, roulettePanel, slotsMenu, sportsbook, sportsbookPanel } from '../game/casino';
+import { baccaratPanel, barPanel, blackjackPanel, cashierPanel, crazyTimePanel, megaFireTerminalPanel, pokerPanel, slotsMenu, sportsbook, sportsbookPanel } from '../game/casino';
 import { CASINO_NAME } from '../game/config';
 import { button, el, euros } from '../game/hud';
 import { rect, type Floor, type Game, type Interactable, type Rect } from '../game/world';
@@ -90,49 +90,6 @@ function gambler(x: number, z: number, rotY: number, g: THREE.Group, list: Chara
   list.push(c);
 }
 
-function rouletteTable() {
-  const g = new THREE.Group();
-  g.add(box(3.2, 0.12, 1.5, darkWood, 0, 0.85, 0, 0.04));
-  g.add(box(3.0, 0.02, 1.3, felt, 0, 0.92, 0));
-  g.add(box(2.9, 0.8, 1.3, darkWood, 0, 0.4, 0));
-  const bowl = cyl(0.45, 0.14, darkWood, -1.0, 0.98, 0, 32);
-  g.add(bowl);
-  const { tex } = canvasTex(128, 128, (ctx) => {
-    const n = 37;
-    for (let i = 0; i < n; i++) {
-      ctx.beginPath();
-      ctx.moveTo(64, 64);
-      ctx.arc(64, 64, 62, (i / n) * Math.PI * 2, ((i + 1) / n) * Math.PI * 2);
-      ctx.fillStyle = i === 0 ? '#0f8a4a' : i % 2 ? '#b3202a' : '#141414';
-      ctx.fill();
-    }
-    ctx.fillStyle = '#b0873a';
-    ctx.beginPath();
-    ctx.arc(64, 64, 26, 0, Math.PI * 2);
-    ctx.fill();
-  });
-  const wheel = new THREE.Mesh(new THREE.CircleGeometry(0.4, 37), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.3 }));
-  wheel.rotation.x = -Math.PI / 2;
-  wheel.position.set(-1.0, 1.056, 0);
-  g.add(wheel);
-  // tablero de números pintado
-  const board = canvasTex(256, 96, (ctx) => {
-    ctx.fillStyle = '#0f6b3a';
-    ctx.fillRect(0, 0, 256, 96);
-    for (let c = 0; c < 12; c++) for (let r = 0; r < 3; r++) {
-      ctx.fillStyle = (c * 3 + r) % 2 ? '#b3202a' : '#141414';
-      ctx.fillRect(20 + c * 19, 8 + r * 26, 17, 24);
-    }
-    ctx.fillStyle = '#0f8a4a';
-    ctx.fillRect(2, 8, 16, 76);
-  });
-  const boardMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.7), new THREE.MeshStandardMaterial({ map: board.tex }));
-  boardMesh.rotation.x = -Math.PI / 2;
-  boardMesh.position.set(0.55, 0.932, 0);
-  g.add(boardMesh);
-  return { g, wheel };
-}
-
 function cardTable(kind: 'blackjack' | 'poker') {
   const g = new THREE.Group();
   if (kind === 'blackjack') {
@@ -217,6 +174,72 @@ function crazyTimeStand() {
   ptr.position.set(0, 3.05, -0.42);
   g.add(ptr);
   return { g, wheel };
+}
+
+// sentarse en un puesto y abrir la ventana; al cerrarla, levantarse
+function sitAndOpen(game: Game, seat: { x: number; z: number; rotY: number }, open: (onClose: () => void) => void) {
+  game.player.sit(seat.x, seat.z, seat.rotY);
+  open(() => { if (!game.hud.panelOpen) game.player.stand(); });
+}
+
+// Terminal de ruleta MegaFire: ruleta central, pantalla grande en un mástil
+// y varios puestos (taburetes con consola) alrededor para sentarse. Estilo
+// terminal de casino físico (tipo ZUUM). Devuelve la rueda y la bola (giran
+// solas), el canvas de la pantalla superior (atractor) y las poses de asiento.
+function megaFireTerminal() {
+  const g = new THREE.Group();
+  // pódium redondo con tapa dorada
+  g.add(cyl(1.5, 0.82, darkWood, 0, 0.41, 0, 40));
+  g.add(cyl(1.52, 0.06, gold, 0, 0.85, 0, 40));
+  // plato de la ruleta
+  const { tex } = canvasTex(128, 128, (ctx) => {
+    const n = 37;
+    for (let i = 0; i < n; i++) {
+      ctx.beginPath(); ctx.moveTo(64, 64);
+      ctx.arc(64, 64, 62, (i / n) * Math.PI * 2, ((i + 1) / n) * Math.PI * 2);
+      ctx.fillStyle = i === 0 ? '#0f8a4a' : i % 2 ? '#b3202a' : '#141414';
+      ctx.fill();
+    }
+    const gr = ctx.createRadialGradient(58, 58, 6, 64, 64, 28);
+    gr.addColorStop(0, '#f6d365'); gr.addColorStop(1, '#8a5a12');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(64, 64, 28, 0, Math.PI * 2); ctx.fill();
+  });
+  const wheel = new THREE.Mesh(new THREE.CircleGeometry(0.95, 37), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.3, emissive: '#301400', emissiveIntensity: 0.3 }));
+  wheel.rotation.x = -Math.PI / 2;
+  wheel.position.set(0, 0.89, 0);
+  g.add(wheel);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.97, 0.06, 10, 48), gold);
+  rim.rotation.x = Math.PI / 2;
+  rim.position.set(0, 0.9, 0);
+  g.add(rim);
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 8), new THREE.MeshStandardMaterial({ color: '#fff', emissive: '#777', emissiveIntensity: 0.4 }));
+  ball.position.set(0.8, 0.95, 0);
+  g.add(ball);
+  // mástil con pantalla grande arriba (atractor: MEGAFIRE + jackpot + fuego)
+  g.add(cyl(0.1, 2.5, mats.steel, 0, 2.1, -1.25));
+  const screen = canvasTex(512, 256, () => undefined);
+  const scr = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 1.25), new THREE.MeshBasicMaterial({ map: screen.tex, toneMapped: false }));
+  scr.position.set(0, 3.15, -1.18);
+  g.add(scr);
+  g.add(box(2.7, 1.45, 0.1, mats.plastic, 0, 3.15, -1.26));
+  // aro de luz naranja bajo la pantalla
+  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.03, 8, 32), new THREE.MeshStandardMaterial({ color: '#ff7a1a', emissive: '#ff7a1a', emissiveIntensity: 1.4 }));
+  halo.position.set(0, 2.35, -1.2);
+  g.add(halo);
+  // puestos alrededor del frente (arco sur), mirando a la pantalla
+  const seats: { x: number; z: number; rotY: number }[] = [];
+  const R = 2.0;
+  for (const a of [-0.95, -0.47, 0, 0.47, 0.95]) {
+    const sx = Math.sin(a) * R, sz = Math.cos(a) * R;
+    g.add(cyl(0.22, 0.5, darkWood, sx, 0.25, sz, 16)); // taburete
+    g.add(cyl(0.24, 0.05, gold, sx, 0.5, sz, 16));
+    // pequeña consola inclinada con pantalla táctil
+    const con = box(0.55, 0.34, 0.06, new THREE.MeshStandardMaterial({ color: '#0c0c0c', emissive: '#4a1e00', emissiveIntensity: 0.5 }), sx * 0.68, 0.92, sz * 0.68);
+    con.lookAt(0, 0.92, 0);
+    g.add(con);
+    seats.push({ x: sx, z: sz, rotY: Math.atan2(-sx, -sz) });
+  }
+  return { g, wheel, ball, screen, seats };
 }
 
 function chandelier() {
@@ -316,19 +339,76 @@ export function createCasino(gameRef: () => Game): Floor {
     g.add(c);
   }
 
-  // ruletas
-  const wheels: THREE.Mesh[] = [];
-  [[-6.5, -4.5], [-6.5, -1.3]].forEach(([x, z], i) => {
-    const t = rouletteTable();
-    t.g.position.set(x, 0, z);
-    g.add(t.g);
-    wheels.push(t.wheel);
-    colliders.push(rect(x, z, 3.3, 1.6));
-    croupier(x - 1.0, z - 1.05, 0, g, people, i);
-    gambler(x + 0.6, z + 1.25, Math.PI, g, people);
-    if (i === 0) gambler(x - 0.5, z + 1.25, Math.PI, g, people);
-    interactables.push({ label: 'Ruleta', x, z: z + 1.2, radius: 1.3, run: () => roulettePanel(gameRef()) });
+  // Terminal de ruleta MegaFire (sustituye a las ruletas sueltas): ruleta
+  // central con pantalla grande y puestos para sentarse a jugar.
+  const mfCenter = { x: -6.3, z: -3.0 };
+  const mf = megaFireTerminal();
+  mf.g.position.set(mfCenter.x, 0, mfCenter.z);
+  g.add(mf.g);
+  const wheels: THREE.Mesh[] = [mf.wheel];
+  colliders.push(rect(mfCenter.x, mfCenter.z - 0.3, 3.2, 2.6));
+  croupier(mfCenter.x, mfCenter.z - 1.7, 0, g, people, 0);
+  const mfSeats = mf.seats.map((s) => ({ x: mfCenter.x + s.x, z: mfCenter.z + s.z, rotY: s.rotY }));
+  // dos jugadores NPC sentados en los puestos de los extremos
+  [mfSeats[0], mfSeats[4]].forEach((s) => gambler(s.x, s.z, s.rotY, g, people));
+  // los tres puestos centrales son para sentarse a jugar
+  [mfSeats[1], mfSeats[2], mfSeats[3]].forEach((s) => {
+    interactables.push({
+      label: 'Sentarse · Ruleta MegaFire', x: s.x, z: s.z + 0.5, radius: 1.0,
+      run: () => sitAndOpen(gameRef(), s, (onClose) => megaFireTerminalPanel(gameRef(), onClose)),
+    });
   });
+  const mfSign = signPlane('MEGAFIRE', 'ruleta en fuego · bolas y bonus', 1.9, 0.58);
+  mfSign.position.set(mfCenter.x, 3.98, mfCenter.z - 1.32);
+  g.add(mfSign);
+  // atractor de la pantalla superior
+  let mfJackpot = 40000 + Math.floor(Math.random() * 90000);
+  let mfFire: number[] = [];
+  let mfAttract = 99;
+  let mfBall = 0;
+  const regenMfFire = () => {
+    const s = new Set<number>();
+    const count = 3 + Math.floor(Math.random() * 2);
+    while (s.size < count) s.add(Math.floor(Math.random() * 37));
+    mfFire = [...s].sort((a, b) => a - b);
+  };
+  const drawMf = () => {
+    const { ctx, tex } = mf.screen;
+    ctx.fillStyle = '#140603';
+    ctx.fillRect(0, 0, 512, 256);
+    const grad = ctx.createRadialGradient(256, 30, 10, 256, 60, 320);
+    grad.addColorStop(0, 'rgba(255,120,30,.4)');
+    grad.addColorStop(1, 'rgba(20,6,3,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 256);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffb163';
+    ctx.font = '800 40px sans-serif';
+    ctx.fillText('🔥 MEGAFIRE', 256, 50);
+    ctx.fillStyle = '#ffe0a8';
+    ctx.font = '700 18px sans-serif';
+    ctx.fillText('JACKPOT', 256, 82);
+    ctx.fillStyle = '#ffd84a';
+    ctx.font = '800 42px monospace';
+    ctx.fillText(mfJackpot.toLocaleString('es-ES'), 256, 126);
+    mfFire.forEach((num, i) => {
+      const x = 256 + (i - (mfFire.length - 1) / 2) * 68;
+      const g2 = ctx.createRadialGradient(x, 168, 4, x, 176, 26);
+      g2.addColorStop(0, '#ff9a3c');
+      g2.addColorStop(1, '#c43a06');
+      ctx.fillStyle = g2;
+      ctx.beginPath();
+      ctx.arc(x, 176, 26, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = '800 22px sans-serif';
+      ctx.fillText(String(num), x, 184);
+    });
+    ctx.fillStyle = '#fff';
+    ctx.font = '600 15px sans-serif';
+    ctx.fillText('Siéntate en un puesto · ronda cada ~30 s', 256, 230);
+    tex.needsUpdate = true;
+  };
   // blackjack
   [[-1.5, -5.2], [1.6, -5.2]].forEach(([x, z], i) => {
     const t = cardTable('blackjack');
@@ -542,10 +622,21 @@ export function createCasino(gameRef: () => Game): Floor {
       elevator.update(dt);
       for (const w of wheels) w.rotation.z += dt * 1.5;
       ct.wheel.rotation.z += dt * 0.5;
+      // bola de la ruleta MegaFire orbitando sobre el plato
+      mfBall += dt * 2.2;
+      mf.ball.position.set(Math.cos(mfBall) * 0.8, 0.95, Math.sin(mfBall) * 0.8);
+      // atractor de la pantalla: números en fuego rotando y jackpot subiendo
+      mfAttract += dt;
+      if (mfAttract > 3) {
+        mfAttract = 0;
+        regenMfFire();
+        mfJackpot += 200 + Math.floor(Math.random() * 600);
+      }
       screenTimer += dt;
       if (screenTimer > 0.1) {
         screenTimer = 0;
         drawScreen();
+        drawMf();
       }
     },
   };

@@ -281,6 +281,418 @@ export function roulettePanel(game: Game) {
   });
 }
 
+// --- Ruleta MegaFire: terminal estilo casino físico ---------------------
+// Te sientas en un puesto, la ruleta gira SOLA por tiempo y, si la bola cae
+// en un número "en fuego" donde tenías ficha, se dispara el minijuego de
+// bolas y multiplicadores (MegaFire). Todo con fichas del casino.
+const MF_MULTS = [1, 2, 4, 5, 10, 15, 20];
+const MF_MULT_WEIGHTS = [26, 22, 16, 13, 10, 7, 4]; // lo bajo sale más
+const MF_BONUS = [10, 100, 500, 1000];
+const MF_BONUS_WEIGHTS = [50, 30, 14, 6]; // x1000 es muy raro
+
+function mfPick(values: number[], weights: number[]) {
+  const total = weights.reduce((s, x) => s + x, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < values.length; i++) if ((r -= weights[i]) < 0) return values[i];
+  return values[0];
+}
+
+export function megaFireTerminalPanel(game: Game, onClose?: () => void) {
+  const { hud } = game;
+  // control de temporizadores: al cerrar la ventana se cancela todo
+  let closed = false;
+  const timers = new Set<number>();
+  let raf = 0;
+  const after = (ms: number, fn: () => void) => {
+    const id = window.setTimeout(() => { timers.delete(id); if (!closed) fn(); }, ms);
+    timers.add(id);
+    return id;
+  };
+  const cleanup = () => {
+    closed = true;
+    timers.forEach((t) => clearTimeout(t));
+    timers.clear();
+    cancelAnimationFrame(raf);
+  };
+
+  const bets: RouletteBet[] = [];
+  let lastBets: { label: string; numbers: number[]; payout: number; amount: number }[] = [];
+  const history: number[] = [];
+  let fire = new Set<number>();
+  let phase: 'bet' | 'spin' | 'resolve' | 'mini' = 'bet';
+  let jackpot = 40000 + Math.floor(Math.random() * 90000);
+
+  hud.openPanel('🔥 Ruleta MegaFire', (body) => {
+    const term = el('div', 'mf-term');
+    // ---- pantalla superior (la grande del terminal) ----
+    const screen = el('div', 'mf-screen');
+    const jackEl = el('div', 'mf-jackpot');
+    const fireStrip = el('div', 'mf-fire');
+    const phaseEl = el('div', 'mf-phase', 'Haz tus apuestas');
+    const countBar = el('div', 'mf-countbar');
+    const countFill = el('div', 'mf-countbar-fill');
+    countBar.append(countFill);
+    screen.append(el('div', 'mf-title', '🔥 MEGAFIRE · Ruleta en directo'), jackEl, fireStrip, phaseEl, countBar);
+    const paintJack = () => { jackEl.innerHTML = `JACKPOT <b>${chips(jackpot)}</b>`; };
+    paintJack();
+
+    // ---- rueda + bola ----
+    const wheel = el('canvas', 'mf-wheel') as HTMLCanvasElement;
+    wheel.width = wheel.height = 240;
+    const bar = chipBar(game);
+    const result = el('div', 'muted', 'La ruleta gira sola. Pon fichas antes de que acabe la cuenta atrás.');
+    const histEl = el('div', 'mf-hist');
+    const mid = el('div', 'mf-mid');
+    const midRight = el('div', 'col');
+    midRight.append(bar, result, histEl);
+    mid.append(wheel, midRight);
+
+    // ---- tapete de apuestas ----
+    const sel = betSelector();
+    const board = el('div', 'roulette mf-board');
+    const chipStack = (amount: number) => {
+      const s = el('span', 'chip-stack');
+      s.textContent = amount >= 1000 ? (amount / 1000) + 'k' : String(amount);
+      s.style.background = amount >= 5000 ? '#0f8a4a' : amount >= 1000 ? '#c8a14a' : amount >= 500 ? '#7d2ae8' : amount >= 100 ? '#111' : amount >= 25 ? '#1f5fae' : '#b3202a';
+      return s;
+    };
+    const refreshBar = () => { bar.textContent = `🪙 ${chips(game.state.data.chips)}`; };
+    const place = (label: string, numbers: number[], payout: number, cell: HTMLElement) => {
+      if (phase !== 'bet') return hud.toast('Espera a la fase de apuestas', 'bad');
+      const v = sel.get();
+      if (!spend(game, v)) return;
+      const existing = bets.find((b) => b.label === label);
+      if (existing) existing.amount += v;
+      else bets.push({ label, numbers, payout, amount: v });
+      cell.querySelector('.chip-stack')?.remove();
+      cell.append(chipStack(bets.find((b) => b.label === label)!.amount));
+      refreshBar();
+    };
+    const cell = (text: string, cls: string, numbers: number[], payout: number) => {
+      const b = el('button', 'rcell ' + cls, text);
+      if (numbers.length === 1) b.dataset.n = String(numbers[0]);
+      b.onclick = () => place(text, numbers, payout, b);
+      return b;
+    };
+    board.append(cell('0', 'green zero', [0], 35));
+    for (let col = 0; col < 12; col++) {
+      for (let row = 2; row >= 0; row--) {
+        const n = col * 3 + row + 1;
+        const c = cell(String(n), RED.has(n) ? 'red' : 'black', [n], 35);
+        c.style.gridColumn = String(col + 2);
+        c.style.gridRow = String(3 - row);
+        board.append(c);
+      }
+    }
+    const range = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+    const outside = el('div', 'roulette-out');
+    outside.append(
+      cell('1-12', 'out', range(1, 12), 2), cell('13-24', 'out', range(13, 24), 2), cell('25-36', 'out', range(25, 36), 2),
+      cell('1-18', 'out', range(1, 18), 1), cell('PAR', 'out', range(1, 36).filter((x) => x % 2 === 0), 1),
+      cell('ROJO', 'red out', [...RED], 1), cell('NEGRO', 'black out', range(1, 36).filter((x) => !RED.has(x)), 1),
+      cell('IMPAR', 'out', range(1, 36).filter((x) => x % 2), 1), cell('19-36', 'out', range(19, 36), 1),
+    );
+    const clearChips = () => {
+      board.querySelectorAll('.chip-stack').forEach((e) => e.remove());
+      outside.querySelectorAll('.chip-stack').forEach((e) => e.remove());
+    };
+
+    const controls = el('div', 'mf-controls');
+    const spinNow = button('🎡 Girar ya', () => { if (phase === 'bet' && bets.length) doSpin(); else if (!bets.length) hud.toast('Pon alguna ficha primero', 'bad'); });
+    const repeat = button('↻ Repetir apuesta', () => {
+      if (phase !== 'bet' || !lastBets.length) return;
+      for (const b of lastBets) {
+        const c = b.numbers.length === 1
+          ? board.querySelector<HTMLElement>(`.rcell[data-n="${b.numbers[0]}"]`)
+          : [...outside.querySelectorAll<HTMLElement>('.rcell')].find((e) => e.textContent === b.label) ?? null;
+        if (!c) continue;
+        if (game.state.data.chips < b.amount) { hud.toast('No te llega para repetir todo', 'bad'); break; }
+        place(b.label, b.numbers, b.payout, c);
+      }
+    }, 'btn ghost');
+    const takeBack = button('Retirar fichas', () => {
+      if (phase !== 'bet') return;
+      for (const b of bets) win(game, b.amount);
+      bets.length = 0;
+      clearChips();
+      refreshBar();
+    }, 'btn ghost');
+    controls.append(sel.row, spinNow, repeat, takeBack);
+
+    term.append(screen, mid, controls, el('div', 'muted', 'Pon la ficha encima del número (la tapa) o en una zona:'), board, outside);
+    body.append(term);
+
+    // ---- dibujo de la rueda ----
+    const WHEEL_SEG = (Math.PI * 2) / WHEEL.length;
+    let wheelAngle = 0;
+    const drawWheel = (wa: number, ba: number, br: number) => {
+      const ctx = wheel.getContext('2d')!;
+      const R = 116, c = 120;
+      ctx.clearRect(0, 0, 240, 240);
+      ctx.beginPath(); ctx.arc(c, c, R + 2, 0, Math.PI * 2); ctx.fillStyle = '#4a3418'; ctx.fill();
+      WHEEL.forEach((num, i) => {
+        ctx.beginPath(); ctx.moveTo(c, c);
+        ctx.arc(c, c, R, wa + i * WHEEL_SEG, wa + (i + 1) * WHEEL_SEG);
+        ctx.fillStyle = num === 0 ? '#0f8a4a' : RED.has(num) ? '#b3202a' : '#141414';
+        ctx.fill();
+        if (fire.has(num)) {
+          ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = '#ff7a1a'; ctx.fill(); ctx.restore();
+        }
+        ctx.save(); ctx.translate(c, c);
+        ctx.rotate(wa + (i + 0.5) * WHEEL_SEG + Math.PI / 2);
+        ctx.fillStyle = '#fff'; ctx.font = '700 11px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(String(num), 0, -R + 13);
+        ctx.restore();
+      });
+      ctx.beginPath(); ctx.arc(c, c, R - 26, 0, Math.PI * 2); ctx.strokeStyle = '#2a1c0c'; ctx.lineWidth = 3; ctx.stroke();
+      ctx.beginPath(); ctx.arc(c, c, 54, 0, Math.PI * 2);
+      const g = ctx.createRadialGradient(c - 15, c - 15, 8, c, c, 54);
+      g.addColorStop(0, '#caa24a'); g.addColorStop(1, '#6b4a22');
+      ctx.fillStyle = g; ctx.fill();
+      ctx.beginPath(); ctx.arc(c + Math.cos(ba) * br, c + Math.sin(ba) * br, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 4; ctx.fill(); ctx.shadowBlur = 0;
+    };
+    drawWheel(0, -Math.PI / 2, 90);
+
+    const drawHistory = () => {
+      histEl.innerHTML = '';
+      for (const num of history.slice(0, 12)) {
+        const s = el('span', 'rn ' + (num === 0 ? 'g' : RED.has(num) ? 'r' : 'b'), String(num));
+        if (fire.has(num)) s.classList.add('fire');
+        histEl.append(s);
+      }
+    };
+
+    const genFire = () => {
+      fire = new Set();
+      const count = 2 + Math.floor(Math.random() * 4); // 2-5 números
+      while (fire.size < count) fire.add(Math.floor(Math.random() * 37));
+      fireStrip.innerHTML = '<span class="mf-fire-tag">🔥 EN FUEGO</span>';
+      for (const num of [...fire].sort((a, b) => a - b)) {
+        const c = el('span', 'mf-fire-num');
+        c.innerHTML = `<b>${num}</b>`;
+        fireStrip.append(c);
+      }
+      board.querySelectorAll('.rcell').forEach((b) => {
+        const num = Number((b as HTMLElement).dataset.n);
+        (b as HTMLElement).classList.toggle('fire', fire.has(num));
+      });
+    };
+
+    // ---- ciclo de ronda por tiempo ----
+    const BET_MS = 16000;
+    let betEnd = 0;
+    const startRound = () => {
+      if (closed) return;
+      phase = 'bet';
+      bets.length = 0;
+      clearChips();
+      genFire();
+      drawHistory();
+      result.textContent = 'Fase de apuestas: pon fichas (los números 🔥 disparan MegaFire si caen).';
+      betEnd = performance.now() + BET_MS;
+      spinNow.disabled = false;
+      tickCountdown();
+    };
+    const tickCountdown = () => {
+      if (closed || phase !== 'bet') return;
+      const left = Math.max(0, betEnd - performance.now());
+      countFill.style.width = (left / BET_MS) * 100 + '%';
+      phaseEl.textContent = `Haz tus apuestas · ${Math.ceil(left / 1000)} s`;
+      if (left <= 0) return doSpin();
+      after(120, tickCountdown);
+    };
+
+    function doSpin() {
+      if (phase !== 'bet') return;
+      phase = 'spin';
+      spinNow.disabled = true;
+      lastBets = bets.map((b) => ({ ...b }));
+      phaseEl.textContent = 'NO VA MÁS · girando…';
+      countFill.style.width = '0%';
+      const n = WHEEL[Math.floor(Math.random() * WHEEL.length)];
+      const targetIndex = WHEEL.indexOf(n);
+      let wheelSpeed = 0.3, ballAngle = 0, ballSpeed = -0.6, ballR = 92;
+      const anim = () => {
+        if (closed) return;
+        wheelAngle += wheelSpeed; wheelSpeed *= 0.991;
+        if (ballSpeed < -0.05 || ballR > 62) {
+          ballAngle += ballSpeed; ballSpeed *= 0.985;
+          if (Math.abs(ballSpeed) < 0.12) ballR = Math.max(62, ballR - 0.7);
+          drawWheel(wheelAngle, ballAngle, ballR);
+          raf = requestAnimationFrame(anim);
+        } else {
+          drawWheel(wheelAngle, wheelAngle + (targetIndex + 0.5) * WHEEL_SEG, 62);
+          resolve(n);
+        }
+      };
+      anim();
+    }
+
+    const resolve = (n: number) => {
+      phase = 'resolve';
+      jackpot += 150 + Math.floor(Math.random() * 400);
+      paintJack();
+      let normalWon = 0, fireBet = 0;
+      for (const b of bets) {
+        if (!b.numbers.includes(n)) continue;
+        if (b.numbers.length === 1 && fire.has(n)) fireBet += b.amount;
+        else normalWon += b.amount * (b.payout + 1);
+      }
+      if (normalWon) win(game, normalWon);
+      refreshBar();
+      history.unshift(n);
+      drawHistory();
+      const color = n === 0 ? 'g' : RED.has(n) ? 'r' : 'b';
+      if (fireBet > 0 && fire.has(n)) {
+        result.innerHTML = `🔥 ¡El <b class="rn ${color}">${n}</b> estaba EN FUEGO! Empieza MegaFire…`;
+        after(800, () => runMegaFire(n, fireBet, (prize, total) => {
+          if (prize >= fireBet * 20) hud.toast(`🔥 MegaFire ×${total}: +${chips(prize)}`, 'ok');
+          result.innerHTML = `🔥 <b class="rn ${color}">${n}</b> · MegaFire ×${total} → <b>${chips(prize)}</b>${normalWon ? ` · apuestas +${chips(normalWon)}` : ''}`;
+          phase = 'resolve';
+          after(1800, startRound);
+        }));
+      } else {
+        result.innerHTML = `Sale <b class="rn ${color}">${n}</b> ${normalWon ? `· ¡ganas ${chips(normalWon)}! 🎉` : '· gana la banca'}`;
+        after(4200, startRound);
+      }
+    };
+
+    // ---- minijuego MegaFire: bolas que caen en bloques con multiplicadores ----
+    const runMegaFire = (n: number, stake: number, done: (prize: number, total: number) => void) => {
+      phase = 'mini';
+      const COLS = 5, ROWS = 4, N = COLS * ROWS;
+      const blocks: (number | null)[] = Array(N).fill(null);
+      let total = 0, drops = 3, rainStreak = 0, ended = false;
+      const star = Math.random() < 0.55;
+
+      const mini = el('div', 'mf-mini');
+      const starEl = el('div', 'mf-star' + (star ? ' on' : ''), star ? '⭐ ESTRELLA ACTIVA' : '☆ sin estrella');
+      const status = el('div', 'mf-mini-status');
+      const arena = el('div', 'mf-arena');
+      const grid = el('div', 'mf-grid');
+      grid.style.gridTemplateColumns = `repeat(${COLS},1fr)`;
+      const cellEls: HTMLElement[] = [];
+      for (let i = 0; i < N; i++) { const c = el('div', 'mf-block'); cellEls.push(c); grid.append(c); }
+      arena.append(grid);
+      mini.append(el('div', 'mf-mini-head', `🔥 MEGAFIRE · número ${n}`), starEl, status, arena);
+      term.append(mini);
+
+      const paint = () => {
+        status.innerHTML = `Tiradas: <b>${drops}</b> · Total: <b>×${total}</b>${rainStreak ? ` · 🌧️ lluvia ${rainStreak}/3` : ''}`;
+      };
+      paint();
+
+      const dropBall = (targetCell: HTMLElement | null, mult: number, rain: boolean, cb: () => void) => {
+        const ball = el('div', 'mf-ball' + (rain ? ' rain' : ''), rain ? '' : '×' + mult);
+        const ar = arena.getBoundingClientRect();
+        const startX = 12 + Math.random() * Math.max(10, ar.width - 24);
+        ball.style.left = startX + 'px';
+        ball.style.top = '-26px';
+        arena.append(ball);
+        void ball.offsetHeight; // fuerza reflow para que arranque la transición
+        if (rain || !targetCell) {
+          ball.style.transform = `translateY(${ar.height + 46}px)`;
+          ball.style.opacity = '0';
+          after(640, () => { ball.remove(); cb(); });
+        } else {
+          const cr = targetCell.getBoundingClientRect();
+          const tx = cr.left - ar.left + cr.width / 2 - startX;
+          const ty = cr.top - ar.top + cr.height / 2 + 13;
+          ball.style.transform = `translate(${tx}px, ${ty}px)`;
+          after(560, () => {
+            ball.remove();
+            targetCell.classList.add('filled');
+            targetCell.textContent = '×' + mult;
+            cb();
+          });
+        }
+      };
+
+      const endGame = () => {
+        if (ended) return;
+        ended = true;
+        const prize = stake * total;
+        if (prize) win(game, prize);
+        refreshBar();
+        if (total >= 40) game.state.addNews('casino', '🔥', `¡MegaFire en el ${n}! Multiplicador ×${total} = ${chips(prize)}.`);
+        status.innerHTML = `🔥 Fin · multiplicador total <b>×${total}</b> · ${prize ? `¡GANAS ${chips(prize)}!` : 'sin premio'}`;
+        after(2600, () => { mini.remove(); done(prize, total); });
+      };
+
+      const runBonus = (cb: (v: number) => void) => {
+        const bonus = el('div', 'mf-bonus');
+        const strip = el('div', 'mf-bonus-strip');
+        const cells = MF_BONUS.map((v) => { const c = el('div', 'mf-bonus-cell', '×' + v); strip.append(c); return c; });
+        bonus.append(el('div', 'mf-bonus-title', '⭐ RULETA BONUS'), strip);
+        mini.append(bonus);
+        const winner = mfPick(MF_BONUS, MF_BONUS_WEIGHTS);
+        let i = 0, ticks = 0;
+        const totalTicks = 26 + Math.floor(Math.random() * MF_BONUS.length);
+        const hop = () => {
+          cells.forEach((c) => c.classList.remove('on'));
+          cells[i % cells.length].classList.add('on');
+          if (ticks >= totalTicks && MF_BONUS[i % cells.length] === winner) {
+            after(700, () => { bonus.classList.add('done'); cb(winner); });
+            return;
+          }
+          ticks++; i++;
+          after(ticks > totalTicks - 7 ? 170 : 60, hop);
+        };
+        hop();
+      };
+
+      const endFull = () => {
+        if (star) {
+          status.innerHTML = '¡BLOQUES LLENOS + ⭐! Rueda de bonus…';
+          runBonus((v) => { total += v; paint(); after(400, endGame); });
+        } else {
+          status.textContent = '¡Bloques llenos! Pero sin estrella esta vez.';
+          after(900, endGame);
+        }
+      };
+
+      const step = () => {
+        if (closed || ended) return;
+        if (drops <= 0) return endGame();
+        drops--;
+        const empties = cellEls.map((_, i) => i).filter((i) => blocks[i] === null);
+        const rain = empties.length > 0 && Math.random() < 0.3;
+        if (rain) {
+          rainStreak++; drops++; // la lluvia es tirada gratis
+          status.innerHTML = `🌧️ ¡LLUVIA! Las bolas no se quedan · tirada gratis (${rainStreak}/3)`;
+          dropBall(null, 0, true, () => {
+            if (rainStreak >= 3) after(500, endGame);
+            else { paint(); after(350, step); }
+          });
+        } else {
+          rainStreak = 0;
+          const k = Math.min(empties.length, 1 + (Math.random() < 0.4 ? 1 : 0));
+          const chosen: number[] = [];
+          for (let j = 0; j < k; j++) {
+            const pool = empties.filter((e) => !chosen.includes(e));
+            chosen.push(pool[Math.floor(Math.random() * pool.length)]);
+          }
+          let landed = 0;
+          chosen.forEach((idx, j) => {
+            const m = mfPick(MF_MULTS, MF_MULT_WEIGHTS);
+            after(j * 180, () => dropBall(cellEls[idx], m, false, () => {
+              blocks[idx] = m; total += m; paint();
+              if (++landed === chosen.length) {
+                if (blocks.every((b) => b !== null)) after(400, endFull);
+                else after(300, step);
+              }
+            }));
+          });
+        }
+      };
+      step();
+    };
+
+    startRound();
+  }, () => { cleanup(); onClose?.(); });
+}
+
 // --- cartas ---
 const SUITS = ['♠', '♥', '♦', '♣'];
 interface Card { r: number; s: number }

@@ -29,48 +29,26 @@
   centra al abrir), **Noticias** (feed), **Chat** de colegas (local), Ajustes.
 - **Ruleta Lightning** (primera versión): números con ⚡ y multiplicador en
   una tira arriba, la ficha tapa el número, lluvia de multiplicadores al
-  hacer pleno a un número con rayo.
-
----
-
-## PRÓXIMO (prioridad): Ruleta terminal estilo casino físico (MegaFire/Lightning)
-Referencia: terminal tipo ZUUM (varios puestos alrededor de una ruleta
-central, pantalla grande arriba con JACKPOT y números en fuego).
-
-Cómo debe funcionar (reemplaza el "pulsar E → panel soso" actual):
-1. **Te sientas** en un puesto del terminal (como sentarse en una silla).
-   La cámara mira a la pantalla del puesto.
-2. **La ruleta gira SOLA cada X tiempo** (ronda por tiempo, p.ej. 30-40 s):
-   - Fase de apuestas con cuenta atrás (barra/segundos en pantalla).
-   - Apuestas en la pantalla táctil: por **zonas** (docenas, color, par/impar…)
-     o por **números**; la **ficha queda en el centro del número y lo tapa**.
-   - Giro: **bola ultra realista** cayendo (ya existe el canvas, mejorarlo).
-3. **Pantalla superior** (la grande del terminal): en cada tiro aparecen
-   **números en fuego** (los "lucky/fire numbers") con su multiplicador.
-4. **Minijuego cuando toca un número en fuego** (estilo MegaFire):
-   - Caen **bolas** que se quedan en **cuadrados/bloques**.
-   - Caen **multiplicadores** x1 x2 x4 x5 x10 x15 x20…
-   - Si **llueve** (las bolas NO se quedan en los cuadrados) → **tirada gratis**;
-     si llueve **3 veces seguidas**, acaba.
-   - Al final se **suman los multiplicadores** acumulados = premio.
-   - Si se **rellenan bloques** y hay una **estrella arriba** → sale una
-     **ruleta de bonus x10 x100 x500 x1000**.
-5. Mantener el "no deja de ser un juego": fichas del casino, nada de €.
-
-Notas de implementación:
-- Hoy la ruleta es `roulettePanel` en `src/game/casino.ts` (canvas de rueda
-  + bola + tapete DOM + tira Lightning). Hay que convertirla en experiencia
-  de terminal con **ronda por tiempo** y el **minijuego de bolas/bloques**.
-- El terminal 3D está en `src/scene/casino.ts` (mesas `rouletteTable`).
-  Añadir puestos para sentarse (pose 'sentado' ya existe en Character).
-- CSS de la ruleta/Lightning al final de `src/game/game.css`.
+  hacer pleno a un número con rayo. (Sigue disponible como `roulettePanel`.)
+- **Ruleta terminal MegaFire**: terminal con ruleta central, pantalla grande
+  (JACKPOT + números en fuego) y puestos para **sentarse** (3 jugables + 2
+  NPC). **Rondas por tiempo** (16 s de apuestas con cuenta atrás, giro
+  automático, o "Girar ya"). Apuestas por zonas o números con la **ficha en el
+  centro del número**. Si la bola cae en un **número en fuego** donde tienes
+  ficha → **minijuego MegaFire**: bolas que caen en una rejilla 5×4 con
+  multiplicadores (×1…×20), **lluvia = tirada gratis** (3 seguidas y acaba),
+  al final se **suman los multiplicadores**, y si se **llenan los bloques con
+  estrella** → **ruleta de bonus ×10/×100/×500/×1000**. En móvil (Royale
+  Online) y en la Planta 3. `megaFireTerminalPanel` en `src/game/casino.ts`;
+  terminal 3D `megaFireTerminal()` en `src/scene/casino.ts`; CSS al final de
+  `src/game/game.css`.
 
 ---
 
 ## Backlog (siguientes bloques, uno por turno/chat)
 
 ### Casino
-- [ ] Ruleta terminal + minijuego MegaFire (arriba, PRIORIDAD).
+- [x] Ruleta terminal + minijuego MegaFire.
 - [ ] **Slots estilo MegaFire**: con multiplicadores que caen, bonus y
       tiradas gratis (misma estética que la ruleta nueva).
 - [ ] Sentarse físicamente en las mesas (ruleta, blackjack, baccarat).

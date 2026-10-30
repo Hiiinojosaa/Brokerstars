@@ -1,4 +1,4 @@
-import { baccaratPanel, blackjackPanel, cashierPanel, crazyTimePanel, pokerPanel, roulettePanel, slotsMenu, sportsbookPanel } from './casino';
+import { baccaratPanel, blackjackPanel, cashierPanel, crazyTimePanel, megaFireTerminalPanel, pokerPanel, slotsMenu, sportsbookPanel } from './casino';
 import { BANK_NAME, LOAN_OFFERS } from './config';
 import { button, el, euros } from './hud';
 import type { Market } from './market';
@@ -256,7 +256,7 @@ export function casinoApp(game: Game): PhoneApp {
   const GAMES: { icon: string; name: string; sub: string; run: () => void }[] = [
     { icon: '🎡', name: 'Crazy Time', sub: 'Rueda del dinero + bonus', run: () => crazyTimePanel(game) },
     { icon: '🃏', name: 'Speed Baccarat', sub: 'Jugador · Banca · Empate', run: () => baccaratPanel(game) },
-    { icon: '🎯', name: 'Ruleta', sub: 'Europea, bola física', run: () => roulettePanel(game) },
+    { icon: '🔥', name: 'Ruleta MegaFire', sub: 'Rondas por tiempo + minijuego', run: () => megaFireTerminalPanel(game) },
     { icon: '🂡', name: 'Blackjack', sub: '3:2 · split y seguro', run: () => blackjackPanel(game) },
     { icon: '🎰', name: 'Tragaperras', sub: '3 máquinas propias', run: () => slotsMenu(game) },
     { icon: '♠️', name: 'Póker', sub: 'contra la casa', run: () => pokerPanel(game) },
