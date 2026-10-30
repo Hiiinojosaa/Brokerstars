@@ -61,9 +61,11 @@
 - [x] **Cajero BBVA SL**: pantalla "inserte su tarjeta" → insertar tarjeta →
       PIN → saldo → sacar / ingresar. Además **ingreso a un IBAN sin tarjeta**
       (metes efectivo y lo manda a esa cuenta). `atmPanel` en `src/game/bank.ts`.
-- [ ] **Cajero Bitcoin estilo Bitbase**: compra cripto; **saca un papel con
-      un QR** y luego lo **escaneas en otro apartado** del cajero. Sustituye
-      al "tío que cambia bitcoin".
+- [x] **Cajero Bitcoin Bitbase** (en el vestíbulo, junto a los cajeros):
+      comprar cripto con efectivo → **imprime un vale con QR** → lo
+      **escaneas en el lector** del cajero y recibes la cripto; también vende
+      cripto por efectivo. `bitbasePanel` en `src/game/bank.ts`. (La mesa OTC
+      del cambista de la Planta Gris sigue, es lavado del lado oscuro.)
 - [ ] App del móvil: **Bizum** y **transferencias** a otros amigos (IBAN).
 
 ### Supermercado (grande grande)

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PRESETS } from '../characters/catalog';
 import { Character } from '../characters/Character';
-import { atmPanel, loansPanel, tellerPanel } from '../game/bank';
+import { atmPanel, bitbasePanel, loansPanel, tellerPanel } from '../game/bank';
 import { BANK_NAME, SHOP_NAME } from '../game/config';
 import { collectCash, waitingCash } from '../game/scam';
 import { ShopCart, checkoutPanel, shelfPanel, takeCart } from '../game/shop';
@@ -254,6 +254,24 @@ export function createLobby(gameRef: () => Game): Floor {
   };
   addAtm(BANK_X + 0.3, -1.2, Math.PI / 2, { x: BANK_X + 1.0, z: -1.2 });
   addAtm(BANK_X + 0.3, -0.2, Math.PI / 2, { x: BANK_X + 1.0, z: -0.2 });
+  // Cajero Bitcoin Bitbase (naranja), junto a los cajeros del banco
+  const bbMat = new THREE.MeshStandardMaterial({ color: '#e07a1a', roughness: 0.5, metalness: 0.2, emissive: '#3a1a00', emissiveIntensity: 0.3 });
+  const bb = new THREE.Group();
+  bb.add(box(0.7, 1.8, 0.45, bbMat, 0, 0.9, 0, 0.03));
+  const bbScreenTex = canvasTex(128, 96, (ctx) => {
+    ctx.fillStyle = '#1a0f00'; ctx.fillRect(0, 0, 128, 96);
+    ctx.fillStyle = '#ffb163'; ctx.font = '800 30px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('₿', 64, 40);
+    ctx.fillStyle = '#ffd9a8'; ctx.font = '700 13px sans-serif';
+    ctx.fillText('BITBASE', 64, 64); ctx.fillText('compra · vende', 64, 82);
+  });
+  bb.add(new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.3), glow(bbScreenTex, 0.9)).translateY(1.4).translateZ(0.23));
+  bb.add(box(0.3, 0.03, 0.12, mats.plastic, 0, 0.95, 0.28)); // ranura del vale
+  bb.position.set(BANK_X + 0.3, 0, 0.9);
+  bb.rotation.y = Math.PI / 2;
+  g.add(bb);
+  colliders.push(rect(BANK_X + 0.3, 0.9, 0.6, 0.6));
+  interactables.push({ label: 'Cajero Bitcoin Bitbase', x: BANK_X + 1.0, z: 0.9, radius: 0.8, run: () => bitbasePanel(gameRef()) });
   npc({ name: 'Seguridad', face: 'serio', skin: '#5e3a26', hairStyle: 'rapado', top: 'traje', topColor: '#1c1c1c', glasses: 'oscuras', build: 'grande' }, 1.8, 4.8, Math.PI * 0.85, g, people);
   for (const [px, pz] of [[-2.3, -5.4], [2.3, -5.4]] as const) {
     const p = plant(1.2);

@@ -137,6 +137,104 @@ function atmPin(game: Game, body: HTMLElement) {
   body.append(screen, keypad, button('‹ Cancelar', () => atmIntro(game, body), 'btn ghost'));
 }
 
+// --- Cajero Bitcoin estilo Bitbase: compra cripto con efectivo, saca un vale
+// con QR y lo canjeas en el lector del propio cajero. También vende. ---------
+const BB_FEE = 0.05;
+
+// genera un "QR" visual (no funcional) a partir de un código
+function qrCanvas(code: string): HTMLCanvasElement {
+  const N = 25, px = 7;
+  const c = el('canvas') as HTMLCanvasElement;
+  c.width = c.height = N * px;
+  c.className = 'bb-qr';
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+  // semilla simple a partir del código
+  let seed = 0;
+  for (let i = 0; i < code.length; i++) seed = (seed * 31 + code.charCodeAt(i)) >>> 0;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  ctx.fillStyle = '#111';
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (rnd() > 0.5) ctx.fillRect(x * px, y * px, px, px);
+  // marcas de posición (esquinas)
+  const finder = (ox: number, oy: number) => {
+    ctx.fillStyle = '#fff'; ctx.fillRect(ox * px, oy * px, 7 * px, 7 * px);
+    ctx.fillStyle = '#111'; ctx.fillRect(ox * px, oy * px, 7 * px, 7 * px);
+    ctx.fillStyle = '#fff'; ctx.fillRect((ox + 1) * px, (oy + 1) * px, 5 * px, 5 * px);
+    ctx.fillStyle = '#111'; ctx.fillRect((ox + 2) * px, (oy + 2) * px, 3 * px, 3 * px);
+  };
+  finder(0, 0); finder(N - 7, 0); finder(0, N - 7);
+  return c;
+}
+
+interface BbVoucher { eur: number; crypto: number; code: string }
+
+export function bitbasePanel(game: Game) {
+  let voucher: BbVoucher | null = null;
+  game.hud.openPanel('Cajero Bitcoin · Bitbase', (body) => {
+    const bbHome = () => {
+      const { state } = game;
+      body.innerHTML = '';
+      body.append(el('div', 'atm-screen bb-screen', `₿ BITBASE\nCompra y venta de cripto`));
+      body.append(el('p', 'muted', `Tu cripto: ${euros(state.data.crypto)} · efectivo: ${euros(state.data.cash)}. Comisión ${Math.round(BB_FEE * 100)} %.`));
+      body.append(button('🟠 Comprar cripto (efectivo → vale con QR)', bbBuy));
+      body.append(button('💶 Vender cripto (cripto → efectivo)', bbSell, 'btn ghost'));
+      if (voucher) body.append(button('📄 Tengo un vale sin canjear → ir al lector', bbScan, 'btn ghost'));
+    };
+    const bbBuy = () => {
+      const { state, hud } = game;
+      body.innerHTML = '';
+      body.append(el('div', 'atm-screen bb-screen', `Comprar cripto\nEfectivo: ${euros(state.data.cash)}`));
+      const amount = input('Efectivo a cambiar (€)', 'number');
+      body.append(el('p', 'muted', 'Metes efectivo y el cajero imprime un vale con un QR. Luego lo escaneas en el lector para recibir la cripto.'), amount);
+      body.append(button('Imprimir vale', () => {
+        const n = Math.floor(Number(amount.value));
+        if (!(n > 0)) return hud.toast('Escribe cuánto efectivo metes', 'bad');
+        if (!state.payCash(n)) return hud.toast('No llevas tanto efectivo', 'bad');
+        voucher = { eur: n, crypto: Math.round(n * (1 - BB_FEE)), code: 'BB-' + Math.random().toString(36).slice(2, 10).toUpperCase() };
+        bbScan();
+      }));
+      body.append(button('‹ Volver', bbHome, 'btn ghost'));
+    };
+    const bbScan = () => {
+      const { state, hud } = game;
+      body.innerHTML = '';
+      if (!voucher) { bbHome(); return; }
+      body.append(el('div', 'atm-screen bb-screen', `Lector de vales\nAcerca el QR al lector`));
+      const paper = el('div', 'bb-paper');
+      paper.append(el('div', 'bb-paper-h', '₿ BITBASE · VALE'), qrCanvas(voucher.code), el('div', 'bb-paper-code', voucher.code), el('div', 'muted', `${euros(voucher.eur)} → ${euros(voucher.crypto)} en cripto`));
+      body.append(paper);
+      body.append(button('📷 Escanear QR en el lector', () => {
+        const v = voucher!;
+        state.data.crypto += v.crypto;
+        state.persist();
+        voucher = null;
+        hud.toast(`✅ Recibidos ${euros(v.crypto)} en cripto`, 'ok');
+        bbHome();
+      }));
+      body.append(button('‹ Guardar vale y volver', bbHome, 'btn ghost'));
+    };
+    const bbSell = () => {
+      const { state, hud } = game;
+      body.innerHTML = '';
+      body.append(el('div', 'atm-screen bb-screen', `Vender cripto\nSaldo: ${euros(state.data.crypto)}`));
+      const amount = input('Cripto a vender (vacío = todo) €', 'number');
+      body.append(el('p', 'muted', 'Te da el efectivo al momento, menos la comisión.'), amount);
+      body.append(button('Vender y sacar efectivo', () => {
+        const n = amount.value ? Math.floor(Number(amount.value)) : state.data.crypto;
+        if (!(n > 0) || state.data.crypto < n) return hud.toast('No tienes tanta cripto', 'bad');
+        const net = Math.round(n * (1 - BB_FEE));
+        state.data.crypto -= n;
+        state.data.cash += net;
+        state.persist();
+        hud.toast(`💶 +${euros(net)} en efectivo`, 'ok');
+        bbHome();
+      }));
+      body.append(button('‹ Volver', bbHome, 'btn ghost'));
+    };
+    bbHome();
+  });
+}
+
 // ingreso de efectivo a un IBAN ajeno, sin necesidad de tarjeta
 function atmIbanDeposit(game: Game, body: HTMLElement) {
   const { state, hud } = game;
