@@ -142,7 +142,7 @@ function inventoryPanel() {
       row.append(el('span', 'icon', item.icon), el('span', '', `${item.name} × ${n}`));
       if (item.heatsInto) row.append(el('span', 'muted', 'al microondas'));
       else if (item.ocio) {
-        const verb = item.ocio === 'globo' ? 'Inflar globo' : item.ocio === 'bong' ? 'Dar una calada' : 'Encender';
+        const verb = item.ocio === 'globo' ? 'Inflar globo' : item.ocio === 'bong' ? 'Dar una calada' : item.ocio === 'liar' ? 'Liar y fumar' : 'Encender';
         row.append(button(verb, () => {
           const err = state.useOcio(id);
           if (err) hud.toast(err, 'bad');

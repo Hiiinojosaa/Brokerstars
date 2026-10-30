@@ -826,39 +826,69 @@ export class Character {
     this.body.position.y = Math.abs(Math.cos(p)) * (0.025 + run * 0.02);
   }
 
-  // --- ocio: globo que se infla, humo del tabaco/porro, calada del bong ---
-  private ocioProp: THREE.Group | null = null;
+  // --- ocio: animaciones de ~10 s. Fumar (con caladas y brasa que se
+  // consume), liar un porro (lo lía y luego lo fuma), bong y globo que se
+  // infla y se vacía. ---------------------------------------------------
+  private ocioProp: THREE.Group | null = null;   // grupo a la altura de la boca (humo)
+  private ocioHolder: THREE.Group | null = null; // el objeto en la mano (sube/baja)
   private ocioT = 0;
-  private ocioKind: 'globo' | 'fumar' | 'bong' = 'fumar';
+  private ocioDur = 10;
+  private ocioKind: 'globo' | 'fumar' | 'bong' | 'liar' = 'fumar';
+  private ocioNear = false;
 
-  ocio(kind: 'globo' | 'fumar' | 'bong') {
+  ocio(kind: 'globo' | 'fumar' | 'bong' | 'liar') {
     this.clearOcio();
     this.ocioKind = kind;
     this.ocioT = 0;
+    this.ocioNear = false;
+    this.ocioDur = kind === 'globo' ? 9 : kind === 'bong' ? 8 : kind === 'liar' ? 11 : 10;
     const g = new THREE.Group();
     // a la altura de la boca, un poco por delante de la cara
-    g.position.set(0, HEAD_Y * HEAD_SIZE - 0.02, 0.16);
+    g.position.set(0, HEAD_Y * HEAD_SIZE - 0.20, 0.16);
+    this.upper.add(g);
+    this.ocioProp = g;
+    const holder = new THREE.Group();
+    holder.name = 'holder';
+    g.add(holder);
+    this.ocioHolder = holder;
     if (kind === 'globo') {
       const balloon = ball(0.12, new THREE.MeshStandardMaterial({ color: '#58c6ff', roughness: 0.3, transparent: true, opacity: 0.85 }), 1, 1.2, 1);
       balloon.position.set(0.12, 0.18, 0);
       balloon.name = 'balloon';
-      g.add(balloon);
+      holder.add(balloon);
+    } else if (kind === 'liar') {
+      this.buildRolling(holder);
+      holder.position.set(0, -0.34, 0.04); // delante del pecho mientras lía
     } else {
-      const tool = kind === 'bong'
-        ? at(limb(0.03, 0.045, 0.18, mat('#9fe3ff', 0.2)), 0.08, -0.02, 0.02)
-        : at(capsule(0.012, 0.09, mat('#f3efe6', 0.6)), 0.06, 0, 0.04);
-      if (kind === 'fumar') tool.rotation.z = 0.4;
-      g.add(tool);
-      // brasa
-      g.add(at(ball(0.012, new THREE.MeshStandardMaterial({ color: '#ff6a2a', emissive: '#ff4400', emissiveIntensity: 2 })), kind === 'bong' ? 0.08 : 0.1, kind === 'bong' ? 0.07 : 0.02, 0.04));
+      this.buildSmoke(holder, kind);
     }
-    this.upper.add(g);
-    this.ocioProp = g;
   }
 
-  private puff(x: number, y: number, z: number) {
+  private buildSmoke(holder: THREE.Group, kind: 'fumar' | 'bong') {
+    const tool = kind === 'bong'
+      ? at(limb(0.03, 0.045, 0.18, mat('#9fe3ff', 0.2)), 0.08, -0.02, 0.02)
+      : at(capsule(0.012, 0.09, mat('#f3efe6', 0.6)), 0.06, 0, 0.04);
+    tool.name = 'tool';
+    if (kind !== 'bong') tool.rotation.z = 0.4;
+    holder.add(tool);
+    const ember = at(ball(0.012, new THREE.MeshStandardMaterial({ color: '#ff6a2a', emissive: '#ff4400', emissiveIntensity: 2 })), kind === 'bong' ? 0.08 : 0.1, kind === 'bong' ? 0.07 : 0.02, 0.04);
+    ember.name = 'ember';
+    holder.add(ember);
+  }
+
+  private buildRolling(holder: THREE.Group) {
+    // papel de liar plano entre las manos
+    const paper = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.004, 0.05), mat('#f3efe6', 0.7));
+    paper.name = 'paper';
+    holder.add(paper);
+    // dos "manos" (bolitas) a los lados liando
+    for (const s of [-1, 1]) holder.add(at(ball(0.02, mat('#e0b48c', 0.6)), s * 0.055, 0, 0));
+  }
+
+  private puff(x: number, y: number, z: number, big = false) {
     if (!this.ocioProp) return;
-    const s = ball(0.03, new THREE.MeshStandardMaterial({ color: '#dfe3e8', transparent: true, opacity: 0.6, depthWrite: false }));
+    const r = big ? 0.045 : 0.03;
+    const s = ball(r, new THREE.MeshStandardMaterial({ color: '#dfe3e8', transparent: true, opacity: 0.6, depthWrite: false }));
     s.position.set(x, y, z);
     s.userData.life = 0;
     s.name = 'puff';
@@ -870,16 +900,59 @@ export class Character {
     this.ocioProp.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
     this.ocioProp.removeFromParent();
     this.ocioProp = null;
+    this.ocioHolder = null;
+  }
+
+  // ritmo de calada: acerca el cigarro/bong a la boca y al bajar exhala humo
+  private smokeTick(dt: number, cycle: number) {
+    const holder = this.ocioHolder;
+    if (!holder) return;
+    const ph = this.ocioT % cycle;
+    const near = ph < 0.9;
+    holder.position.y += ((near ? 0 : -0.12) - holder.position.y) * Math.min(1, dt * 8);
+    if (this.ocioNear && !near) {
+      // exhalación
+      const n = this.ocioKind === 'bong' ? 7 : 4;
+      for (let i = 0; i < n; i++) this.puff(0.06 + Math.random() * 0.06, 0.04, 0.05, this.ocioKind === 'bong');
+    }
+    this.ocioNear = near;
+    const ember = holder.getObjectByName('ember');
+    if (ember) ((ember as THREE.Mesh).material as THREE.MeshStandardMaterial).emissiveIntensity = near ? 3.2 : 1.6;
+    // el cigarro se consume (se acorta) con el tiempo
+    const tool = holder.getObjectByName('tool');
+    if (tool && this.ocioKind !== 'bong') tool.scale.y = Math.max(0.3, 1 - (this.ocioT / this.ocioDur) * 0.6);
   }
 
   private updateOcio(dt: number) {
     if (!this.ocioProp) return;
     this.ocioT += dt;
+    const holder = this.ocioHolder;
     if (this.ocioKind === 'globo') {
-      const b = this.ocioProp.getObjectByName('balloon');
-      if (b) b.scale.setScalar(Math.min(1.6, 0.4 + this.ocioT * 1.4));
-    } else if (this.ocioT < 2 && Math.random() < dt * 6) {
-      this.puff(0.08 + Math.random() * 0.05, 0.08, 0.05);
+      const b = holder?.getObjectByName('balloon');
+      const half = this.ocioDur * 0.5;
+      if (b) {
+        if (this.ocioT < half) b.scale.setScalar(Math.min(1.7, 0.4 + this.ocioT * 0.9));
+        else {
+          b.scale.setScalar(Math.max(0.18, 1.7 - (this.ocioT - half) * 0.9));
+          b.position.x = 0.12 + Math.sin(this.ocioT * 40) * 0.015; // se vacía dando bandazos
+          if (Math.random() < dt * 10) this.puff(0.2, 0.18, 0);
+        }
+      }
+    } else if (this.ocioKind === 'liar') {
+      const rollEnd = 5;
+      if (this.ocioT < rollEnd && holder) {
+        const p = holder.getObjectByName('paper');
+        if (p) { p.rotation.z = Math.sin(this.ocioT * 10) * 0.35; p.rotation.y += dt * 3; }
+      } else if (holder && !holder.getObjectByName('tool')) {
+        // termina de liar: quita el papel/manos y enciende el porro
+        for (const c of [...holder.children]) { (c as THREE.Mesh).geometry?.dispose?.(); holder.remove(c); }
+        this.buildSmoke(holder, 'fumar');
+        holder.position.set(0, 0, 0.04);
+      } else {
+        this.smokeTick(dt, 2.4);
+      }
+    } else {
+      this.smokeTick(dt, this.ocioKind === 'bong' ? 3 : 2.4);
     }
     // humo que sube y se desvanece
     for (const o of [...this.ocioProp.children]) {
@@ -892,6 +965,6 @@ export class Character {
       mm.opacity = Math.max(0, 0.6 - o.userData.life * 0.4);
       if (o.userData.life > 1.6) { (o as THREE.Mesh).geometry.dispose(); o.removeFromParent(); }
     }
-    if (this.ocioT > 3.2) this.clearOcio();
+    if (this.ocioT > this.ocioDur) this.clearOcio();
   }
 }

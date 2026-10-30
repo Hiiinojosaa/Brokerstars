@@ -281,6 +281,418 @@ export function roulettePanel(game: Game) {
   });
 }
 
+// --- Ruleta MegaFire: terminal estilo casino físico ---------------------
+// Te sientas en un puesto, la ruleta gira SOLA por tiempo y, si la bola cae
+// en un número "en fuego" donde tenías ficha, se dispara el minijuego de
+// bolas y multiplicadores (MegaFire). Todo con fichas del casino.
+const MF_MULTS = [1, 2, 4, 5, 10, 15, 20];
+const MF_MULT_WEIGHTS = [26, 22, 16, 13, 10, 7, 4]; // lo bajo sale más
+const MF_BONUS = [10, 100, 500, 1000];
+const MF_BONUS_WEIGHTS = [50, 30, 14, 6]; // x1000 es muy raro
+
+function mfPick(values: number[], weights: number[]) {
+  const total = weights.reduce((s, x) => s + x, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < values.length; i++) if ((r -= weights[i]) < 0) return values[i];
+  return values[0];
+}
+
+export function megaFireTerminalPanel(game: Game, onClose?: () => void) {
+  const { hud } = game;
+  // control de temporizadores: al cerrar la ventana se cancela todo
+  let closed = false;
+  const timers = new Set<number>();
+  let raf = 0;
+  const after = (ms: number, fn: () => void) => {
+    const id = window.setTimeout(() => { timers.delete(id); if (!closed) fn(); }, ms);
+    timers.add(id);
+    return id;
+  };
+  const cleanup = () => {
+    closed = true;
+    timers.forEach((t) => clearTimeout(t));
+    timers.clear();
+    cancelAnimationFrame(raf);
+  };
+
+  const bets: RouletteBet[] = [];
+  let lastBets: { label: string; numbers: number[]; payout: number; amount: number }[] = [];
+  const history: number[] = [];
+  let fire = new Set<number>();
+  let phase: 'bet' | 'spin' | 'resolve' | 'mini' = 'bet';
+  let jackpot = 40000 + Math.floor(Math.random() * 90000);
+
+  hud.openPanel('🔥 Ruleta MegaFire', (body) => {
+    const term = el('div', 'mf-term');
+    // ---- pantalla superior (la grande del terminal) ----
+    const screen = el('div', 'mf-screen');
+    const jackEl = el('div', 'mf-jackpot');
+    const fireStrip = el('div', 'mf-fire');
+    const phaseEl = el('div', 'mf-phase', 'Haz tus apuestas');
+    const countBar = el('div', 'mf-countbar');
+    const countFill = el('div', 'mf-countbar-fill');
+    countBar.append(countFill);
+    screen.append(el('div', 'mf-title', '🔥 MEGAFIRE · Ruleta en directo'), jackEl, fireStrip, phaseEl, countBar);
+    const paintJack = () => { jackEl.innerHTML = `JACKPOT <b>${chips(jackpot)}</b>`; };
+    paintJack();
+
+    // ---- rueda + bola ----
+    const wheel = el('canvas', 'mf-wheel') as HTMLCanvasElement;
+    wheel.width = wheel.height = 240;
+    const bar = chipBar(game);
+    const result = el('div', 'muted', 'La ruleta gira sola. Pon fichas antes de que acabe la cuenta atrás.');
+    const histEl = el('div', 'mf-hist');
+    const mid = el('div', 'mf-mid');
+    const midRight = el('div', 'col');
+    midRight.append(bar, result, histEl);
+    mid.append(wheel, midRight);
+
+    // ---- tapete de apuestas ----
+    const sel = betSelector();
+    const board = el('div', 'roulette mf-board');
+    const chipStack = (amount: number) => {
+      const s = el('span', 'chip-stack');
+      s.textContent = amount >= 1000 ? (amount / 1000) + 'k' : String(amount);
+      s.style.background = amount >= 5000 ? '#0f8a4a' : amount >= 1000 ? '#c8a14a' : amount >= 500 ? '#7d2ae8' : amount >= 100 ? '#111' : amount >= 25 ? '#1f5fae' : '#b3202a';
+      return s;
+    };
+    const refreshBar = () => { bar.textContent = `🪙 ${chips(game.state.data.chips)}`; };
+    const place = (label: string, numbers: number[], payout: number, cell: HTMLElement) => {
+      if (phase !== 'bet') return hud.toast('Espera a la fase de apuestas', 'bad');
+      const v = sel.get();
+      if (!spend(game, v)) return;
+      const existing = bets.find((b) => b.label === label);
+      if (existing) existing.amount += v;
+      else bets.push({ label, numbers, payout, amount: v });
+      cell.querySelector('.chip-stack')?.remove();
+      cell.append(chipStack(bets.find((b) => b.label === label)!.amount));
+      refreshBar();
+    };
+    const cell = (text: string, cls: string, numbers: number[], payout: number) => {
+      const b = el('button', 'rcell ' + cls, text);
+      if (numbers.length === 1) b.dataset.n = String(numbers[0]);
+      b.onclick = () => place(text, numbers, payout, b);
+      return b;
+    };
+    board.append(cell('0', 'green zero', [0], 35));
+    for (let col = 0; col < 12; col++) {
+      for (let row = 2; row >= 0; row--) {
+        const n = col * 3 + row + 1;
+        const c = cell(String(n), RED.has(n) ? 'red' : 'black', [n], 35);
+        c.style.gridColumn = String(col + 2);
+        c.style.gridRow = String(3 - row);
+        board.append(c);
+      }
+    }
+    const range = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+    const outside = el('div', 'roulette-out');
+    outside.append(
+      cell('1-12', 'out', range(1, 12), 2), cell('13-24', 'out', range(13, 24), 2), cell('25-36', 'out', range(25, 36), 2),
+      cell('1-18', 'out', range(1, 18), 1), cell('PAR', 'out', range(1, 36).filter((x) => x % 2 === 0), 1),
+      cell('ROJO', 'red out', [...RED], 1), cell('NEGRO', 'black out', range(1, 36).filter((x) => !RED.has(x)), 1),
+      cell('IMPAR', 'out', range(1, 36).filter((x) => x % 2), 1), cell('19-36', 'out', range(19, 36), 1),
+    );
+    const clearChips = () => {
+      board.querySelectorAll('.chip-stack').forEach((e) => e.remove());
+      outside.querySelectorAll('.chip-stack').forEach((e) => e.remove());
+    };
+
+    const controls = el('div', 'mf-controls');
+    const spinNow = button('🎡 Girar ya', () => { if (phase === 'bet' && bets.length) doSpin(); else if (!bets.length) hud.toast('Pon alguna ficha primero', 'bad'); });
+    const repeat = button('↻ Repetir apuesta', () => {
+      if (phase !== 'bet' || !lastBets.length) return;
+      for (const b of lastBets) {
+        const c = b.numbers.length === 1
+          ? board.querySelector<HTMLElement>(`.rcell[data-n="${b.numbers[0]}"]`)
+          : [...outside.querySelectorAll<HTMLElement>('.rcell')].find((e) => e.textContent === b.label) ?? null;
+        if (!c) continue;
+        if (game.state.data.chips < b.amount) { hud.toast('No te llega para repetir todo', 'bad'); break; }
+        place(b.label, b.numbers, b.payout, c);
+      }
+    }, 'btn ghost');
+    const takeBack = button('Retirar fichas', () => {
+      if (phase !== 'bet') return;
+      for (const b of bets) win(game, b.amount);
+      bets.length = 0;
+      clearChips();
+      refreshBar();
+    }, 'btn ghost');
+    controls.append(sel.row, spinNow, repeat, takeBack);
+
+    term.append(screen, mid, controls, el('div', 'muted', 'Pon la ficha encima del número (la tapa) o en una zona:'), board, outside);
+    body.append(term);
+
+    // ---- dibujo de la rueda ----
+    const WHEEL_SEG = (Math.PI * 2) / WHEEL.length;
+    let wheelAngle = 0;
+    const drawWheel = (wa: number, ba: number, br: number) => {
+      const ctx = wheel.getContext('2d')!;
+      const R = 116, c = 120;
+      ctx.clearRect(0, 0, 240, 240);
+      ctx.beginPath(); ctx.arc(c, c, R + 2, 0, Math.PI * 2); ctx.fillStyle = '#4a3418'; ctx.fill();
+      WHEEL.forEach((num, i) => {
+        ctx.beginPath(); ctx.moveTo(c, c);
+        ctx.arc(c, c, R, wa + i * WHEEL_SEG, wa + (i + 1) * WHEEL_SEG);
+        ctx.fillStyle = num === 0 ? '#0f8a4a' : RED.has(num) ? '#b3202a' : '#141414';
+        ctx.fill();
+        if (fire.has(num)) {
+          ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = '#ff7a1a'; ctx.fill(); ctx.restore();
+        }
+        ctx.save(); ctx.translate(c, c);
+        ctx.rotate(wa + (i + 0.5) * WHEEL_SEG + Math.PI / 2);
+        ctx.fillStyle = '#fff'; ctx.font = '700 11px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(String(num), 0, -R + 13);
+        ctx.restore();
+      });
+      ctx.beginPath(); ctx.arc(c, c, R - 26, 0, Math.PI * 2); ctx.strokeStyle = '#2a1c0c'; ctx.lineWidth = 3; ctx.stroke();
+      ctx.beginPath(); ctx.arc(c, c, 54, 0, Math.PI * 2);
+      const g = ctx.createRadialGradient(c - 15, c - 15, 8, c, c, 54);
+      g.addColorStop(0, '#caa24a'); g.addColorStop(1, '#6b4a22');
+      ctx.fillStyle = g; ctx.fill();
+      ctx.beginPath(); ctx.arc(c + Math.cos(ba) * br, c + Math.sin(ba) * br, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 4; ctx.fill(); ctx.shadowBlur = 0;
+    };
+    drawWheel(0, -Math.PI / 2, 90);
+
+    const drawHistory = () => {
+      histEl.innerHTML = '';
+      for (const num of history.slice(0, 12)) {
+        const s = el('span', 'rn ' + (num === 0 ? 'g' : RED.has(num) ? 'r' : 'b'), String(num));
+        if (fire.has(num)) s.classList.add('fire');
+        histEl.append(s);
+      }
+    };
+
+    const genFire = () => {
+      fire = new Set();
+      const count = 2 + Math.floor(Math.random() * 4); // 2-5 números
+      while (fire.size < count) fire.add(Math.floor(Math.random() * 37));
+      fireStrip.innerHTML = '<span class="mf-fire-tag">🔥 EN FUEGO</span>';
+      for (const num of [...fire].sort((a, b) => a - b)) {
+        const c = el('span', 'mf-fire-num');
+        c.innerHTML = `<b>${num}</b>`;
+        fireStrip.append(c);
+      }
+      board.querySelectorAll('.rcell').forEach((b) => {
+        const num = Number((b as HTMLElement).dataset.n);
+        (b as HTMLElement).classList.toggle('fire', fire.has(num));
+      });
+    };
+
+    // ---- ciclo de ronda por tiempo ----
+    const BET_MS = 16000;
+    let betEnd = 0;
+    const startRound = () => {
+      if (closed) return;
+      phase = 'bet';
+      bets.length = 0;
+      clearChips();
+      genFire();
+      drawHistory();
+      result.textContent = 'Fase de apuestas: pon fichas (los números 🔥 disparan MegaFire si caen).';
+      betEnd = performance.now() + BET_MS;
+      spinNow.disabled = false;
+      tickCountdown();
+    };
+    const tickCountdown = () => {
+      if (closed || phase !== 'bet') return;
+      const left = Math.max(0, betEnd - performance.now());
+      countFill.style.width = (left / BET_MS) * 100 + '%';
+      phaseEl.textContent = `Haz tus apuestas · ${Math.ceil(left / 1000)} s`;
+      if (left <= 0) return doSpin();
+      after(120, tickCountdown);
+    };
+
+    function doSpin() {
+      if (phase !== 'bet') return;
+      phase = 'spin';
+      spinNow.disabled = true;
+      lastBets = bets.map((b) => ({ ...b }));
+      phaseEl.textContent = 'NO VA MÁS · girando…';
+      countFill.style.width = '0%';
+      const n = WHEEL[Math.floor(Math.random() * WHEEL.length)];
+      const targetIndex = WHEEL.indexOf(n);
+      let wheelSpeed = 0.3, ballAngle = 0, ballSpeed = -0.6, ballR = 92;
+      const anim = () => {
+        if (closed) return;
+        wheelAngle += wheelSpeed; wheelSpeed *= 0.991;
+        if (ballSpeed < -0.05 || ballR > 62) {
+          ballAngle += ballSpeed; ballSpeed *= 0.985;
+          if (Math.abs(ballSpeed) < 0.12) ballR = Math.max(62, ballR - 0.7);
+          drawWheel(wheelAngle, ballAngle, ballR);
+          raf = requestAnimationFrame(anim);
+        } else {
+          drawWheel(wheelAngle, wheelAngle + (targetIndex + 0.5) * WHEEL_SEG, 62);
+          resolve(n);
+        }
+      };
+      anim();
+    }
+
+    const resolve = (n: number) => {
+      phase = 'resolve';
+      jackpot += 150 + Math.floor(Math.random() * 400);
+      paintJack();
+      let normalWon = 0, fireBet = 0;
+      for (const b of bets) {
+        if (!b.numbers.includes(n)) continue;
+        if (b.numbers.length === 1 && fire.has(n)) fireBet += b.amount;
+        else normalWon += b.amount * (b.payout + 1);
+      }
+      if (normalWon) win(game, normalWon);
+      refreshBar();
+      history.unshift(n);
+      drawHistory();
+      const color = n === 0 ? 'g' : RED.has(n) ? 'r' : 'b';
+      if (fireBet > 0 && fire.has(n)) {
+        result.innerHTML = `🔥 ¡El <b class="rn ${color}">${n}</b> estaba EN FUEGO! Empieza MegaFire…`;
+        after(800, () => runMegaFire(n, fireBet, (prize, total) => {
+          if (prize >= fireBet * 20) hud.toast(`🔥 MegaFire ×${total}: +${chips(prize)}`, 'ok');
+          result.innerHTML = `🔥 <b class="rn ${color}">${n}</b> · MegaFire ×${total} → <b>${chips(prize)}</b>${normalWon ? ` · apuestas +${chips(normalWon)}` : ''}`;
+          phase = 'resolve';
+          after(1800, startRound);
+        }));
+      } else {
+        result.innerHTML = `Sale <b class="rn ${color}">${n}</b> ${normalWon ? `· ¡ganas ${chips(normalWon)}! 🎉` : '· gana la banca'}`;
+        after(4200, startRound);
+      }
+    };
+
+    // ---- minijuego MegaFire: bolas que caen en bloques con multiplicadores ----
+    const runMegaFire = (n: number, stake: number, done: (prize: number, total: number) => void) => {
+      phase = 'mini';
+      const COLS = 5, ROWS = 4, N = COLS * ROWS;
+      const blocks: (number | null)[] = Array(N).fill(null);
+      let total = 0, drops = 3, rainStreak = 0, ended = false;
+      const star = Math.random() < 0.55;
+
+      const mini = el('div', 'mf-mini');
+      const starEl = el('div', 'mf-star' + (star ? ' on' : ''), star ? '⭐ ESTRELLA ACTIVA' : '☆ sin estrella');
+      const status = el('div', 'mf-mini-status');
+      const arena = el('div', 'mf-arena');
+      const grid = el('div', 'mf-grid');
+      grid.style.gridTemplateColumns = `repeat(${COLS},1fr)`;
+      const cellEls: HTMLElement[] = [];
+      for (let i = 0; i < N; i++) { const c = el('div', 'mf-block'); cellEls.push(c); grid.append(c); }
+      arena.append(grid);
+      mini.append(el('div', 'mf-mini-head', `🔥 MEGAFIRE · número ${n}`), starEl, status, arena);
+      term.append(mini);
+
+      const paint = () => {
+        status.innerHTML = `Tiradas: <b>${drops}</b> · Total: <b>×${total}</b>${rainStreak ? ` · 🌧️ lluvia ${rainStreak}/3` : ''}`;
+      };
+      paint();
+
+      const dropBall = (targetCell: HTMLElement | null, mult: number, rain: boolean, cb: () => void) => {
+        const ball = el('div', 'mf-ball' + (rain ? ' rain' : ''), rain ? '' : '×' + mult);
+        const ar = arena.getBoundingClientRect();
+        const startX = 12 + Math.random() * Math.max(10, ar.width - 24);
+        ball.style.left = startX + 'px';
+        ball.style.top = '-26px';
+        arena.append(ball);
+        void ball.offsetHeight; // fuerza reflow para que arranque la transición
+        if (rain || !targetCell) {
+          ball.style.transform = `translateY(${ar.height + 46}px)`;
+          ball.style.opacity = '0';
+          after(640, () => { ball.remove(); cb(); });
+        } else {
+          const cr = targetCell.getBoundingClientRect();
+          const tx = cr.left - ar.left + cr.width / 2 - startX;
+          const ty = cr.top - ar.top + cr.height / 2 + 13;
+          ball.style.transform = `translate(${tx}px, ${ty}px)`;
+          after(560, () => {
+            ball.remove();
+            targetCell.classList.add('filled');
+            targetCell.textContent = '×' + mult;
+            cb();
+          });
+        }
+      };
+
+      const endGame = () => {
+        if (ended) return;
+        ended = true;
+        const prize = stake * total;
+        if (prize) win(game, prize);
+        refreshBar();
+        if (total >= 40) game.state.addNews('casino', '🔥', `¡MegaFire en el ${n}! Multiplicador ×${total} = ${chips(prize)}.`);
+        status.innerHTML = `🔥 Fin · multiplicador total <b>×${total}</b> · ${prize ? `¡GANAS ${chips(prize)}!` : 'sin premio'}`;
+        after(2600, () => { mini.remove(); done(prize, total); });
+      };
+
+      const runBonus = (cb: (v: number) => void) => {
+        const bonus = el('div', 'mf-bonus');
+        const strip = el('div', 'mf-bonus-strip');
+        const cells = MF_BONUS.map((v) => { const c = el('div', 'mf-bonus-cell', '×' + v); strip.append(c); return c; });
+        bonus.append(el('div', 'mf-bonus-title', '⭐ RULETA BONUS'), strip);
+        mini.append(bonus);
+        const winner = mfPick(MF_BONUS, MF_BONUS_WEIGHTS);
+        let i = 0, ticks = 0;
+        const totalTicks = 26 + Math.floor(Math.random() * MF_BONUS.length);
+        const hop = () => {
+          cells.forEach((c) => c.classList.remove('on'));
+          cells[i % cells.length].classList.add('on');
+          if (ticks >= totalTicks && MF_BONUS[i % cells.length] === winner) {
+            after(700, () => { bonus.classList.add('done'); cb(winner); });
+            return;
+          }
+          ticks++; i++;
+          after(ticks > totalTicks - 7 ? 170 : 60, hop);
+        };
+        hop();
+      };
+
+      const endFull = () => {
+        if (star) {
+          status.innerHTML = '¡BLOQUES LLENOS + ⭐! Rueda de bonus…';
+          runBonus((v) => { total += v; paint(); after(400, endGame); });
+        } else {
+          status.textContent = '¡Bloques llenos! Pero sin estrella esta vez.';
+          after(900, endGame);
+        }
+      };
+
+      const step = () => {
+        if (closed || ended) return;
+        if (drops <= 0) return endGame();
+        drops--;
+        const empties = cellEls.map((_, i) => i).filter((i) => blocks[i] === null);
+        const rain = empties.length > 0 && Math.random() < 0.3;
+        if (rain) {
+          rainStreak++; drops++; // la lluvia es tirada gratis
+          status.innerHTML = `🌧️ ¡LLUVIA! Las bolas no se quedan · tirada gratis (${rainStreak}/3)`;
+          dropBall(null, 0, true, () => {
+            if (rainStreak >= 3) after(500, endGame);
+            else { paint(); after(350, step); }
+          });
+        } else {
+          rainStreak = 0;
+          const k = Math.min(empties.length, 1 + (Math.random() < 0.4 ? 1 : 0));
+          const chosen: number[] = [];
+          for (let j = 0; j < k; j++) {
+            const pool = empties.filter((e) => !chosen.includes(e));
+            chosen.push(pool[Math.floor(Math.random() * pool.length)]);
+          }
+          let landed = 0;
+          chosen.forEach((idx, j) => {
+            const m = mfPick(MF_MULTS, MF_MULT_WEIGHTS);
+            after(j * 180, () => dropBall(cellEls[idx], m, false, () => {
+              blocks[idx] = m; total += m; paint();
+              if (++landed === chosen.length) {
+                if (blocks.every((b) => b !== null)) after(400, endFull);
+                else after(300, step);
+              }
+            }));
+          });
+        }
+      };
+      step();
+    };
+
+    startRound();
+  }, () => { cleanup(); onClose?.(); });
+}
+
 // --- cartas ---
 const SUITS = ['♠', '♥', '♦', '♣'];
 interface Card { r: number; s: number }
@@ -310,7 +722,7 @@ function bjValue(hand: Card[]) {
   return v;
 }
 
-export function blackjackPanel(game: Game) {
+export function blackjackPanel(game: Game, onClose?: () => void) {
   const { hud } = game;
   hud.openPanel('Blackjack', (body) => {
     const sel = betSelector();
@@ -417,7 +829,7 @@ export function blackjackPanel(game: Game) {
     };
     body.append(bar, el('div', 'section', 'Banca'), dealerRow, el('div', 'section', 'Tú'), handsWrap, msg, sel.row, actions);
     render();
-  });
+  }, onClose);
 }
 
 // --- Crazy Time: rueda del dinero con top slot y 4 bonus ---
@@ -596,7 +1008,7 @@ export function crazyTimePanel(game: Game) {
 // --- Speed Baccarat (punto y banca) ---
 const bacValue = (h: Card[]) => h.reduce((s, c) => s + (c.r >= 10 ? (c.r === 14 ? 1 : 0) : c.r), 0) % 10;
 
-export function baccaratPanel(game: Game) {
+export function baccaratPanel(game: Game, onClose?: () => void) {
   const { hud } = game;
   let bet: 'jugador' | 'banca' | 'empate' | null = null;
   const history: string[] = [];
@@ -655,7 +1067,7 @@ export function baccaratPanel(game: Game) {
     table.append(el('div', 'bc-side', 'Jugador'), pRow, el('div', 'bc-side banca', 'Banca'), bRow);
     body.append(bar, table, msg, el('div', 'muted', 'Valor de la ficha:'), sel.row, picks, deal);
     paint();
-  });
+  }, onClose);
 }
 
 // --- tragaperras: tres máquinas propias, cada una con su mecánica ---
@@ -712,6 +1124,11 @@ function pickSymbol(g: SlotGame) {
 export function slotsMenu(game: Game) {
   game.hud.openPanel('Tragaperras', (body) => {
     body.append(el('div', 'muted', 'Elige máquina. Cada una juega distinto. Todo con fichas del casino.'));
+    // destacada: Slots MegaFire (misma estética que la ruleta en fuego)
+    const feat = el('button', 'slot-pick mfs-pick');
+    feat.innerHTML = `<b>🔥 Slots MegaFire</b><span>🔥 💰 ⭐ 🎁</span><small>Orbes con multiplicador, colector, tiradas gratis y bonus ×10…×1000.</small>`;
+    feat.onclick = () => megaFireSlotsPanel(game);
+    body.append(feat);
     for (const g of SLOTS) {
       const card = el('button', 'slot-pick');
       card.style.background = g.theme;
@@ -816,6 +1233,335 @@ function slotMachine(game: Game, g: SlotGame) {
   });
 }
 
+// --- Slots MegaFire: orbes con multiplicador, colector, tiradas gratis y bonus
+// (misma estética que la ruleta MegaFire) ---------------------------------
+interface MfsSym { icon: string; weight: number; pay: number }
+const MFS_NORMAL: MfsSym[] = [
+  { icon: '🔟', weight: 32, pay: 0.5 },
+  { icon: '🅰️', weight: 24, pay: 0.8 },
+  { icon: '🔔', weight: 18, pay: 1.5 },
+  { icon: '💎', weight: 12, pay: 3 },
+  { icon: '👑', weight: 7, pay: 6 },
+];
+const MFS_ORB_VALUES = [2, 3, 5, 10, 25, 50, 100];
+const MFS_ORB_WEIGHTS = [30, 24, 18, 12, 8, 5, 3];
+interface MfsCell { kind: 'n' | 'orb' | 'collect' | 'scatter' | 'bonus'; icon: string; val?: number }
+
+function mfsPickCell(fs: boolean): MfsCell {
+  const r = Math.random() * 100;
+  const orbRate = fs ? 14 : 8;          // en tiradas gratis caen más orbes
+  const collectRate = fs ? 5 : 3;
+  if (r < orbRate) {
+    if (Math.random() < 0.05) return { kind: 'bonus', icon: '🎁' };
+    return { kind: 'orb', icon: '🔥', val: mfPick(MFS_ORB_VALUES, MFS_ORB_WEIGHTS) };
+  }
+  if (r < orbRate + collectRate) return { kind: 'collect', icon: '💰' };
+  if (r < orbRate + collectRate + 2.5) return { kind: 'scatter', icon: '⭐' };
+  const idx = mfPick(MFS_NORMAL.map((_, i) => i), MFS_NORMAL.map((s) => s.weight));
+  return { kind: 'n', icon: MFS_NORMAL[idx].icon };
+}
+
+export function megaFireSlotsPanel(game: Game) {
+  const { hud } = game;
+  let closed = false;
+  const timers = new Set<number>();
+  const after = (ms: number, fn: () => void) => { const id = window.setTimeout(() => { timers.delete(id); if (!closed) fn(); }, ms); timers.add(id); return id; };
+  const sleep = (ms: number) => new Promise<void>((res) => after(ms, res));
+
+  const COLS = 5, ROWS = 4, N = COLS * ROWS;
+  let freeSpins = 0, fsMult = 1, busy = false;
+
+  hud.openPanel('🔥 Slots MegaFire', (body) => {
+    const bar = chipBar(game);
+    const sel = betSelector([5, 25, 100, 500, 1000]);
+    const grid = el('div', 'slot-grid mfs-grid');
+    grid.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
+    const cells: HTMLElement[] = [];
+    for (let i = 0; i < N; i++) { const c = el('div', 'slot-cell mfs-cell'); c.textContent = MFS_NORMAL[i % MFS_NORMAL.length].icon; cells.push(c); grid.append(c); }
+    const msg = el('div', 'muted', '🔥 orbes = multiplicadores · 💰 colector = los cobra todos · 3+ ⭐ = tiradas gratis · 🎁 = bonus. Todo con fichas.');
+    const bonusWrap = el('div', 'mfs-bonus-slot');
+    const refreshBar = () => { bar.textContent = `🪙 ${chips(game.state.data.chips)}${freeSpins ? ` · 🎁 ${freeSpins} gratis ×${fsMult}` : ''}`; };
+
+    const paintCell = (i: number, c: MfsCell) => {
+      const e = cells[i];
+      e.className = 'slot-cell mfs-cell ' + (c.kind === 'orb' ? 'orb' : c.kind === 'collect' ? 'collect' : c.kind === 'scatter' ? 'scatter' : c.kind === 'bonus' ? 'bonus' : '');
+      e.innerHTML = c.kind === 'orb' ? `🔥<span class="mfs-val">×${c.val}</span>` : c.icon;
+    };
+
+    const runBonus = (cb: (v: number) => void) => {
+      bonusWrap.innerHTML = '';
+      const bonus = el('div', 'mf-bonus');
+      const strip = el('div', 'mf-bonus-strip');
+      const bcells = MF_BONUS.map((v) => { const c = el('div', 'mf-bonus-cell', '×' + v); strip.append(c); return c; });
+      bonus.append(el('div', 'mf-bonus-title', '🎁 BONUS MEGAFIRE'), strip);
+      bonusWrap.append(bonus);
+      const winner = mfPick(MF_BONUS, MF_BONUS_WEIGHTS);
+      let i = 0, ticks = 0;
+      const total = 26 + Math.floor(Math.random() * MF_BONUS.length);
+      const hop = () => {
+        bcells.forEach((c) => c.classList.remove('on'));
+        bcells[i % bcells.length].classList.add('on');
+        if (ticks >= total && MF_BONUS[i % bcells.length] === winner) { after(700, () => { after(900, () => bonus.remove()); cb(winner); }); return; }
+        ticks++; i++;
+        after(ticks > total - 7 ? 170 : 60, hop);
+      };
+      hop();
+    };
+
+    const settle = async (stake: number) => {
+      // animación de rodillos
+      for (let t = 0; t < 12; t++) { cells.forEach((c, i) => { if (t < 5 + (i % COLS) * 2) c.textContent = mfsPickCell(freeSpins > 0).icon; }); await sleep(45); }
+      const board: MfsCell[] = Array.from({ length: N }, () => mfsPickCell(freeSpins > 0));
+      board.forEach((c, i) => paintCell(i, c));
+      await sleep(250);
+
+      let won = 0;
+      // racimos de 8+ del mismo símbolo normal
+      const counts = new Map<string, number[]>();
+      board.forEach((c, i) => { if (c.kind === 'n') counts.set(c.icon, [...(counts.get(c.icon) ?? []), i]); });
+      for (const [icon, idx] of counts) if (idx.length >= 8) {
+        won += stake * (MFS_NORMAL.find((s) => s.icon === icon)!.pay) * (idx.length - 7);
+        idx.forEach((i) => cells[i].classList.add('slot-win'));
+      }
+      // orbes + colector
+      const orbs = board.map((c, i) => ({ c, i })).filter((x) => x.c.kind === 'orb');
+      const collectors = board.map((c, i) => i).filter((i) => board[i].kind === 'collect');
+      const hasBonus = board.some((c) => c.kind === 'bonus');
+      let collectMsg = '';
+      if (collectors.length && (orbs.length || hasBonus)) {
+        cells.forEach((c) => c.classList.remove('slot-win'));
+        collectors.forEach((i) => cells[i].classList.add('mfs-collecting'));
+        orbs.forEach((o) => cells[o.i].classList.add('mfs-collecting'));
+        await sleep(650);
+        const orbSum = orbs.reduce((s, o) => s + (o.c.val || 0), 0);
+        const collected = stake * orbSum * collectors.length * fsMult;
+        if (collected) won += collected;
+        collectMsg = `💰 colecta ×${orbSum}${collectors.length > 1 ? ` ×${collectors.length} colectores` : ''}${fsMult > 1 ? ` ×${fsMult}` : ''} = ${chips(collected)}`;
+        if (hasBonus) {
+          await sleep(300);
+          await new Promise<void>((res) => runBonus((v) => { const bw = stake * v * fsMult; won += bw; collectMsg += ` · 🎁 ×${v} = ${chips(bw)}`; res(); }));
+        }
+      }
+      // scatters → tiradas gratis
+      const scatters = board.filter((c) => c.kind === 'scatter').length;
+      let fsMsg = '';
+      if (scatters >= 3) {
+        board.forEach((c, i) => { if (c.kind === 'scatter') cells[i].classList.add('slot-win'); });
+        if (freeSpins > 0) { freeSpins += 5; fsMsg = ' · 🎁 +5 tiradas gratis'; }
+        else { freeSpins = 8; fsMult = 1; fsMsg = ' · 🎁 ¡8 TIRADAS GRATIS! Los colectores suben el multiplicador'; }
+      }
+      if (won) win(game, won);
+      refreshBar();
+      msg.innerHTML = `${won ? `🎉 +${chips(won)}` : 'Sin premio'}${collectMsg ? ` · ${collectMsg}` : ''}${fsMsg}`;
+      setTimeout(() => cells.forEach((c) => c.classList.remove('slot-win', 'mfs-collecting')), 1200);
+    };
+
+    const spin = button('🎰 Tirar', async () => {
+      if (busy) return;
+      const free = freeSpins > 0;
+      const stake = sel.get();
+      if (!free && !spend(game, stake)) return;
+      busy = true; spin.disabled = true;
+      if (free) { freeSpins--; }
+      await settle(stake);
+      if (free) fsMult++; // en tiradas gratis el multiplicador crece
+      busy = false; spin.disabled = false;
+      refreshBar();
+      if (freeSpins > 0) { msg.innerHTML += ` · quedan ${freeSpins} gratis ×${fsMult}`; }
+      else if (free) { fsMult = 1; }
+    });
+
+    refreshBar();
+    body.append(bar, grid, bonusWrap, msg, sel.row, spin, button('‹ Otras máquinas', () => slotsMenu(game), 'btn ghost'));
+  }, () => { closed = true; timers.forEach((t) => clearTimeout(t)); timers.clear(); });
+}
+
+// --- Gemas (Mines): descubre gemas y evita las bombas; retírate cuando quieras
+export function minesPanel(game: Game) {
+  const { hud } = game;
+  const T = 25;
+  hud.openPanel('Gemas 💎', (body) => {
+    const bar = chipBar(game);
+    const sel = betSelector([5, 25, 100, 500, 1000]);
+    let bombsN = 5;
+    let active = false, mult = 1, bet = 0, picks = 0;
+    const bombs = new Set<number>();
+    const grid = el('div', 'mines-grid');
+    const cells: HTMLButtonElement[] = [];
+    const msg = el('div', 'muted', 'Elige apuesta y número de bombas. Cada gema sube el premio; retírate antes de pillar una bomba.');
+    const cashBtn = button('Retirar', () => cashOut(), 'btn');
+    const bombSel = el('div', 'row');
+
+    const fairMultAfter = (k: number) => {
+      let m = 1;
+      for (let i = 0; i < k; i++) m *= (T - i) / (T - bombsN - i);
+      return Math.round(m * 0.97 * 100) / 100; // 3 % de ventaja de la casa
+    };
+    const paint = () => {
+      bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
+      cashBtn.disabled = !active || picks === 0;
+      cashBtn.textContent = active && picks > 0 ? `Retirar ${chips(Math.floor(bet * mult))} (×${mult})` : 'Retirar';
+    };
+    const revealAll = () => {
+      cells.forEach((c, i) => {
+        c.disabled = true;
+        if (bombs.has(i)) { c.textContent = '💣'; c.classList.add('bomb'); }
+        else if (!c.classList.contains('gem')) c.textContent = '💎', c.classList.add('faint');
+      });
+    };
+    const cashOut = () => {
+      if (!active || picks === 0) return;
+      const wonAmt = Math.floor(bet * mult);
+      win(game, wonAmt);
+      active = false;
+      revealAll();
+      msg.innerHTML = `✅ Te retiras con <b>${chips(wonAmt)}</b> (×${mult})`;
+      paint();
+    };
+    const pick = (i: number) => {
+      if (!active) return;
+      const c = cells[i];
+      if (bombs.has(i)) {
+        active = false;
+        c.textContent = '💥'; c.classList.add('bomb');
+        revealAll();
+        msg.innerHTML = '💣 ¡BOOM! Pierdes la apuesta. Otra vez.';
+        paint();
+        return;
+      }
+      c.textContent = '💎'; c.classList.add('gem'); c.disabled = true;
+      picks++;
+      mult = fairMultAfter(picks);
+      if (picks === T - bombsN) { // todas las gemas
+        win(game, Math.floor(bet * mult));
+        active = false;
+        revealAll();
+        msg.innerHTML = `🏆 ¡Todas las gemas! +${chips(Math.floor(bet * mult))}`;
+      } else {
+        msg.innerHTML = `💎 Gema ${picks} · premio actual ${chips(Math.floor(bet * mult))} (×${mult})`;
+      }
+      paint();
+    };
+    const newGame = () => {
+      bet = sel.get();
+      if (!spend(game, bet)) return;
+      bombs.clear();
+      while (bombs.size < bombsN) bombs.add(Math.floor(Math.random() * T));
+      active = true; mult = 1; picks = 0;
+      cells.forEach((c) => { c.textContent = ''; c.className = 'mine-cell'; c.disabled = false; });
+      msg.textContent = `En juego · ${bombsN} bombas. Descubre gemas.`;
+      paint();
+    };
+    const startBtn = button('🎮 Jugar', newGame);
+
+    for (let i = 0; i < T; i++) {
+      const c = el('button', 'mine-cell') as HTMLButtonElement;
+      c.onclick = () => pick(i);
+      cells.push(c); grid.append(c);
+    }
+    const renderBombSel = () => {
+      bombSel.innerHTML = '';
+      for (const n of [3, 5, 10]) bombSel.append(button(`${n} bombas`, () => { if (!active) { bombsN = n; renderBombSel(); } }, 'btn small' + (bombsN === n ? ' on' : '')));
+    };
+    renderBombSel();
+    body.append(bar, el('div', 'muted', 'Valor de la ficha:'), sel.row, bombSel, grid, msg, el('div', 'row', ''));
+    (body.lastChild as HTMLElement).append(startBtn, cashBtn);
+    paint();
+  });
+}
+
+// --- Mega Wheel: rueda del dinero con multiplicador en el top slot ---
+const MW_SEGMENTS = [1, 2, 1, 5, 1, 2, 1, 10, 2, 1, 5, 2, 1, 20, 1, 2, 5, 1, 40, 2];
+const MW_VALUES = [1, 2, 5, 10, 20, 40];
+const MW_COLORS: Record<number, string> = { 1: '#2d9cdb', 2: '#6fcf97', 5: '#f2c94c', 10: '#f2994a', 20: '#eb5757', 40: '#9b51e0' };
+export function megaWheelPanel(game: Game) {
+  const { hud } = game;
+  const bets: Record<number, number> = {};
+  let spinning = false;
+  const history: number[] = [];
+  hud.openPanel('Mega Wheel', (body) => {
+    const bar = chipBar(game);
+    const sel = betSelector([1, 5, 25, 100, 500]);
+    const canvas = el('canvas', 'ct-wheel') as HTMLCanvasElement;
+    canvas.width = canvas.height = 260;
+    const topslot = el('div', 'ct-topslot');
+    const result = el('div', 'muted', 'Apuesta a un número y gira. El top slot multiplica un número al azar.');
+    const grid = el('div', 'mw-grid');
+    const cells: Record<number, HTMLElement> = {};
+    for (const v of MW_VALUES) {
+      const c = el('button', 'mw-cell');
+      c.style.background = MW_COLORS[v];
+      c.innerHTML = `<b>×${v}</b><span class="ct-stake"></span>`;
+      c.onclick = () => {
+        if (spinning) return;
+        const val = sel.get();
+        if (!spend(game, val)) return;
+        bets[v] = (bets[v] ?? 0) + val;
+        c.querySelector('.ct-stake')!.textContent = `🪙 ${bets[v]}`;
+        bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
+      };
+      cells[v] = c; grid.append(c);
+    }
+    const seg = (Math.PI * 2) / MW_SEGMENTS.length;
+    const draw = (angle: number) => {
+      const ctx = canvas.getContext('2d')!;
+      const R = 125, c = 130;
+      ctx.clearRect(0, 0, 260, 260);
+      ctx.beginPath(); ctx.arc(c, c, R + 3, 0, Math.PI * 2); ctx.fillStyle = '#2a1a06'; ctx.fill();
+      MW_SEGMENTS.forEach((v, i) => {
+        ctx.beginPath(); ctx.moveTo(c, c);
+        ctx.arc(c, c, R, angle + i * seg, angle + (i + 1) * seg);
+        ctx.fillStyle = MW_COLORS[v]; ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.stroke();
+        ctx.save(); ctx.translate(c, c); ctx.rotate(angle + (i + 0.5) * seg + Math.PI / 2);
+        ctx.fillStyle = '#1a1205'; ctx.font = '800 13px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('×' + v, 0, -R + 16); ctx.restore();
+      });
+      ctx.beginPath(); ctx.arc(c, c, 32, 0, Math.PI * 2);
+      const gr = ctx.createRadialGradient(c - 10, c - 10, 5, c, c, 32); gr.addColorStop(0, '#f6d365'); gr.addColorStop(1, '#8a5a12');
+      ctx.fillStyle = gr; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(c, 6); ctx.lineTo(c - 11, 26); ctx.lineTo(c + 11, 26); ctx.closePath();
+      ctx.fillStyle = '#fff'; ctx.strokeStyle = '#111'; ctx.lineWidth = 2; ctx.fill(); ctx.stroke();
+    };
+    let angle = 0; draw(angle);
+    let topVal = MW_VALUES[Math.floor(Math.random() * MW_VALUES.length)];
+    let topMult = [2, 3, 5, 10][Math.floor(Math.random() * 4)];
+    const paintTop = () => { topslot.innerHTML = `TOP SLOT · <b>×${topVal}</b> gana <b>×${topMult}</b>`; };
+    paintTop();
+    const spinBtn = button('🎡 ¡Girar!', () => {
+      if (spinning) return;
+      if (!Object.keys(bets).length) return hud.toast('Pon fichas en algún número', 'bad');
+      spinning = true; spinBtn.disabled = true;
+      const idx = Math.floor(Math.random() * MW_SEGMENTS.length);
+      const winner = MW_SEGMENTS[idx];
+      const target = -Math.PI / 2 - (idx + 0.5) * seg;
+      const turns = 5 + Math.random() * 2;
+      const start = angle, end = target - Math.PI * 2 * turns;
+      const T0 = performance.now(), dur = 4000;
+      const anim = (now: number) => {
+        const p = Math.min(1, (now - T0) / dur);
+        angle = start + (end - start) * (1 - Math.pow(1 - p, 3));
+        draw(angle);
+        if (p < 1) return requestAnimationFrame(anim);
+        history.unshift(winner);
+        const stake = bets[winner] ?? 0;
+        const boost = topVal === winner ? topMult : 1;
+        const won = stake * winner * boost;
+        if (won) win(game, won);
+        result.innerHTML = `Sale <b>×${winner}</b>${boost > 1 ? ` (TOP ×${topMult})` : ''} · ${won ? `¡GANAS ${chips(won)}! 🎉` : 'nada'} <span class="muted">· ${history.slice(0, 12).map((h) => '×' + h).join(' ')}</span>`;
+        for (const v of MW_VALUES) { delete bets[v]; cells[v].querySelector('.ct-stake')!.textContent = ''; }
+        bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
+        spinning = false; spinBtn.disabled = false;
+        topVal = MW_VALUES[Math.floor(Math.random() * MW_VALUES.length)];
+        topMult = [2, 3, 5, 10][Math.floor(Math.random() * 4)];
+        paintTop();
+      };
+      requestAnimationFrame(anim);
+    });
+    body.append(bar, topslot, canvas, el('div', 'muted', 'Valor de la ficha:'), sel.row, grid, spinBtn, result);
+  });
+}
+
 // --- póker Texas Hold'em contra dos jugadores del casino ---
 function handRank(cards: Card[]): number[] {
   // mejor mano de 5 entre 7 cartas: devuelve [categoría, desempates…]
@@ -853,7 +1599,7 @@ function compare(a: number[], b: number[]) {
 }
 const HAND_NAMES = ['Carta alta', 'Pareja', 'Doble pareja', 'Trío', 'Escalera', 'Color', 'Full', 'Póker', 'Escalera de color'];
 
-export function pokerPanel(game: Game) {
+export function pokerPanel(game: Game, onClose?: () => void) {
   const { hud } = game;
   const BLIND = 50;
   hud.openPanel('Póker Texas Hold\'em', (body) => {
@@ -956,7 +1702,7 @@ export function pokerPanel(game: Game) {
     };
     body.append(bar, botsRow, el('div', 'section', 'Mesa'), boardRow, el('div', 'section', 'Tus cartas'), myRow, msg, actions);
     render();
-  });
+  }, onClose);
 }
 
 // --- apuestas deportivas: partidos reales que se juegan en 5 minutos ---
@@ -996,7 +1742,7 @@ export const MATCHES: Match[] = [
     { min: 1, team: 0, who: 'Maldini' }, { min: 39, team: 0, who: 'Crespo' }, { min: 44, team: 0, who: 'Crespo' }, { min: 54, team: 1, who: 'Gerrard' }, { min: 56, team: 1, who: 'Šmicer' }, { min: 60, team: 1, who: 'Xabi Alonso' }] },
 ];
 
-const LIVE_SECONDS = 300;
+const LIVE_SECONDS = 180; // cada partido dura ~3 minutos reales
 
 // el partido que se juega ahora en las pantallas (uno cada 5 minutos)
 export class Sportsbook {
@@ -1041,8 +1787,19 @@ export class Sportsbook {
     const text = `${this.match.home} ${h}-${a} ${this.match.away}${this.match.note ? ` (${this.match.note})` : ''}`;
     if (had) game.phone.notify('⚽ Apuestas', paid ? `${text} · ¡Cobras ${chips(paid)}!` : `${text} · Apuesta perdida`);
     for (const fn of this.onEnd) fn(text);
-    this.index = (this.index + 1 + Math.floor(Math.random() * (MATCHES.length - 1))) % MATCHES.length;
+    // los partidos se juegan en orden (así se conoce el calendario del día)
+    this.index = (this.index + 1) % MATCHES.length;
     this.elapsed = 0;
+  }
+
+  // índices de los próximos n partidos (en orden de calendario)
+  nextIndices(n: number): number[] {
+    return Array.from({ length: n }, (_, i) => (this.index + 1 + i) % MATCHES.length);
+  }
+
+  // segundos reales hasta el saque del k-ésimo próximo partido (k=1 el siguiente)
+  secsToKickoff(k: number): number {
+    return Math.max(0, LIVE_SECONDS - this.elapsed) + (k - 1) * LIVE_SECONDS;
   }
 }
 
@@ -1083,9 +1840,42 @@ export function sportsbookPanel(game: Game, book: Sportsbook = sportsbook) {
       button('Más de 2,5 goles (1.85)', () => place('+2.5', 1.85), 'btn ghost'),
       button('Menos de 2,5 goles (1.95)', () => place('-2.5', 1.95), 'btn ghost'),
     );
-    body.append(bar, live, feed, el('div', 'section', 'Apostar (cierra en el minuto 10)'), markets, sel.row, el('p', 'muted', 'Partidos reales con su resultado y goleadores de verdad, resumidos en 5 minutos. Se paga el resultado al final (prórroga incluida; los penaltis cuentan como empate).'));
-    render();
-    timer = window.setInterval(render, 500);
+    // apuestas a partidos que aún no han empezado (siempre abiertas)
+    const prePlace = (idx: number, pick: string, odds: number) => {
+      const v = sel.get();
+      if (!spend(game, v)) return;
+      book.bets.push({ pick, amount: v, odds, match: idx });
+      hud.toast(`Apuesta ${pick} a ${odd(odds)} · ${chips(v)}`, 'ok');
+      render();
+    };
+    const fixtures = el('div', 'fixtures');
+    const myBets = el('div', 'muted');
+    const fmtCountdown = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+    const renderFixtures = () => {
+      fixtures.innerHTML = '';
+      book.nextIndices(3).forEach((idx, i) => {
+        const fm = MATCHES[idx];
+        const card = el('div', 'fixture');
+        card.append(el('div', 'fx-comp', `${fm.comp} · empieza en ${fmtCountdown(book.secsToKickoff(i + 1))}`));
+        card.append(el('div', 'fx-teams', `${fm.home} vs ${fm.away}`));
+        const row = el('div', 'row');
+        row.append(
+          button(`1 (${odd(fm.odds[0])})`, () => prePlace(idx, '1', fm.odds[0]), 'btn small'),
+          button(`X (${odd(fm.odds[1])})`, () => prePlace(idx, 'X', fm.odds[1]), 'btn small'),
+          button(`2 (${odd(fm.odds[2])})`, () => prePlace(idx, '2', fm.odds[2]), 'btn small'),
+        );
+        card.append(row);
+        fixtures.append(card);
+      });
+      const mine = book.bets.filter((b) => b.match !== book.index);
+      myBets.textContent = mine.length ? `Tienes ${mine.length} apuesta(s) a partidos futuros.` : '';
+    };
+    const fullRender = () => { render(); renderFixtures(); };
+    body.append(bar, live, feed, el('div', 'section', 'Apostar al partido en juego (cierra en el min 10)'), markets, sel.row,
+      el('div', 'section', 'Próximos partidos'), fixtures, myBets,
+      el('p', 'muted', 'Partidos reales con su resultado y goleadores de verdad, en ~3 minutos cada uno, uno tras otro todo el día. Puedes apostar al que se juega o a los próximos. Se paga al final (prórroga incluida; penaltis = empate).'));
+    fullRender();
+    timer = window.setInterval(fullRender, 500);
   }, () => clearInterval(timer));
 }
 

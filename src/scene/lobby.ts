@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PRESETS } from '../characters/catalog';
 import { Character } from '../characters/Character';
-import { atmPanel, loansPanel, tellerPanel } from '../game/bank';
+import { atmPanel, bitbasePanel, loansPanel, tellerPanel } from '../game/bank';
 import { BANK_NAME, SHOP_NAME } from '../game/config';
 import { collectCash, waitingCash } from '../game/scam';
 import { ShopCart, checkoutPanel, shelfPanel, takeCart } from '../game/shop';
@@ -254,6 +254,24 @@ export function createLobby(gameRef: () => Game): Floor {
   };
   addAtm(BANK_X + 0.3, -1.2, Math.PI / 2, { x: BANK_X + 1.0, z: -1.2 });
   addAtm(BANK_X + 0.3, -0.2, Math.PI / 2, { x: BANK_X + 1.0, z: -0.2 });
+  // Cajero Bitcoin Bitbase (naranja), junto a los cajeros del banco
+  const bbMat = new THREE.MeshStandardMaterial({ color: '#e07a1a', roughness: 0.5, metalness: 0.2, emissive: '#3a1a00', emissiveIntensity: 0.3 });
+  const bb = new THREE.Group();
+  bb.add(box(0.7, 1.8, 0.45, bbMat, 0, 0.9, 0, 0.03));
+  const bbScreenTex = canvasTex(128, 96, (ctx) => {
+    ctx.fillStyle = '#1a0f00'; ctx.fillRect(0, 0, 128, 96);
+    ctx.fillStyle = '#ffb163'; ctx.font = '800 30px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('₿', 64, 40);
+    ctx.fillStyle = '#ffd9a8'; ctx.font = '700 13px sans-serif';
+    ctx.fillText('BITBASE', 64, 64); ctx.fillText('compra · vende', 64, 82);
+  });
+  bb.add(new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.3), glow(bbScreenTex, 0.9)).translateY(1.4).translateZ(0.23));
+  bb.add(box(0.3, 0.03, 0.12, mats.plastic, 0, 0.95, 0.28)); // ranura del vale
+  bb.position.set(BANK_X + 0.3, 0, 0.9);
+  bb.rotation.y = Math.PI / 2;
+  g.add(bb);
+  colliders.push(rect(BANK_X + 0.3, 0.9, 0.6, 0.6));
+  interactables.push({ label: 'Cajero Bitcoin Bitbase', x: BANK_X + 1.0, z: 0.9, radius: 0.8, run: () => bitbasePanel(gameRef()) });
   npc({ name: 'Seguridad', face: 'serio', skin: '#5e3a26', hairStyle: 'rapado', top: 'traje', topColor: '#1c1c1c', glasses: 'oscuras', build: 'grande' }, 1.8, 4.8, Math.PI * 0.85, g, people);
   for (const [px, pz] of [[-2.3, -5.4], [2.3, -5.4]] as const) {
     const p = plant(1.2);
@@ -262,6 +280,24 @@ export function createLobby(gameRef: () => Game): Floor {
     colliders.push(rect(px, pz, 0.45, 0.45));
   }
   g.add(cyl(0.02, 1, mats.steel, -0.8, 0.5, 4.6), cyl(0.02, 1, mats.steel, 0.8, 0.5, 4.6));
+  // logo corporativo Brokerstar sobre la entrada del vestíbulo
+  const logoTex = canvasTex(512, 160, (ctx) => {
+    const grad = ctx.createLinearGradient(0, 0, 0, 160);
+    grad.addColorStop(0, '#1b6fe0'); grad.addColorStop(1, '#0a2f7a');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, 512, 160);
+    ctx.save(); ctx.translate(78, 80); ctx.fillStyle = '#ffd84a';
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) { const r = i % 2 === 0 ? 46 : 18; const a = (i / 10) * Math.PI * 2 - Math.PI / 2; ctx[i === 0 ? 'moveTo' : 'lineTo'](Math.cos(a) * r, Math.sin(a) * r); }
+    ctx.closePath(); ctx.fill(); ctx.restore();
+    ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.font = '800 50px sans-serif';
+    ctx.fillText('BROKERSTAR', 140, 78);
+    ctx.fillStyle = '#bcd4ff'; ctx.font = '600 22px sans-serif';
+    ctx.fillText('Global Financial Solutions', 142, 112);
+  });
+  const logo = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.06), new THREE.MeshStandardMaterial({ map: logoTex, emissive: '#ffffff', emissiveMap: logoTex, emissiveIntensity: 0.5 }));
+  logo.position.set(0, 3.05, D / 2 - 0.06);
+  logo.rotation.y = Math.PI;
+  g.add(logo);
   // la mula que paga en efectivo espera junto a la entrada
   const mule = new Character({ ...PRESETS[0], name: 'Mula', hat: 'gorra', hatColor: '#1c1c1c', glasses: 'ninguna', top: 'sudadera', topColor: '#3d4045', print: 'ninguno', pants: 'anchos', pantsColor: '#2f4d7a', shoes: 'bajas', shoesColor: '#f2f2f2', face: 'serio', skin: '#d9a77e' });
   mule.root.position.set(-1.6, 0, 5.2);
@@ -396,14 +432,55 @@ export function createLobby(gameRef: () => Game): Floor {
   g.add(box(0.35, 0.25, 0.05, mats.plastic, 10.0, 1.15, 5.05));
   colliders.push(rect(9.6, 4.8, 2.3, 0.8));
   npc({ name: 'Cajero', face: 'normal', skin: '#8d5a3b', hairStyle: 'rapado', top: 'camiseta', topColor: '#c0392b', print: 'ninguno', pants: 'rectos', pantsColor: '#1f2c45', shoes: 'bajas', glasses: 'ninguna' }, 9.6, 5.5, Math.PI, g, people);
-  interactables.push({ label: 'Caja: pagar la compra', x: 9.6, z: 4.0, radius: 1.1, run: () => checkoutPanel(gameRef(), cart) });
+  interactables.push({ label: 'Caja atendida: el cajero pasa tu compra', x: 9.6, z: 4.0, radius: 1.1, run: () => checkoutPanel(gameRef(), cart, 'staffed') });
   for (const ax of [5.0, 6.0, 7.0] as const) {
     const sc = selfCheckout();
     sc.position.set(ax, 0, 4.9);
     g.add(sc);
     colliders.push(rect(ax, 4.9, 0.6, 0.5));
-    interactables.push({ label: 'Autocaja: escanea y paga', x: ax, z: 4.1, radius: 0.9, run: () => checkoutPanel(gameRef(), cart) });
+    interactables.push({ label: 'Autopago: escanea, tarjeta cliente y paga', x: ax, z: 4.1, radius: 0.9, run: () => checkoutPanel(gameRef(), cart, 'self') });
   }
+  // máquina expendedora de tabaco junto al estanco
+  const vend = new THREE.Group();
+  vend.add(box(0.7, 1.8, 0.5, new THREE.MeshStandardMaterial({ color: '#8a1f2a', roughness: 0.5 }), 0, 0.9, 0, 0.03));
+  const vendGlass = canvasTex(96, 128, (ctx) => {
+    ctx.fillStyle = '#111'; ctx.fillRect(0, 0, 96, 128);
+    ctx.font = '22px serif'; ctx.textAlign = 'center';
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) ctx.fillText('🚬', 18 + c * 30, 28 + r * 30);
+  });
+  vend.add(new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.7), glow(vendGlass, 0.5)).translateY(1.0).translateZ(0.26));
+  vend.add(box(0.5, 0.25, 0.05, mats.plastic, 0, 1.55, 0.26));
+  vend.position.set(9.7, 0, 1.2);
+  vend.rotation.y = -Math.PI / 2;
+  g.add(vend);
+  colliders.push(rect(9.7, 1.2, 0.6, 0.6));
+  interactables.push({ label: 'Máquina de tabaco', x: 9.0, z: 1.2, radius: 0.9, run: () => shelfPanel(gameRef(), cart, 'estanco') });
+  // pasillos (góndolas) en el centro del súper: frescos y hogar, para que sea
+  // más grande y tenga pasillos por los que andar
+  const gondola = (gx: number, gz: number, len: number) => {
+    const gg = new THREE.Group();
+    gg.add(box(0.8, 1.2, len, mats.plastic, 0, 0.6, 0, 0.02));
+    gg.add(box(0.86, 0.04, len, mats.steel, 0, 1.0, 0));
+    for (let i = 0; i < Math.floor(len * 2.2); i++) {
+      const side = i % 2 ? 1 : -1;
+      const zz = -len / 2 + 0.35 + Math.floor(i / 2) * 0.5;
+      const h = 0.12 + (i % 3) * 0.06;
+      gg.add(box(0.14, h, 0.3, new THREE.MeshStandardMaterial({ color: new THREE.Color(`hsl(${(i * 53) % 360},60%,55%)`) }), side * 0.32, 0.72 + h / 2, zz));
+    }
+    gg.position.set(gx, 0, gz);
+    g.add(gg);
+    colliders.push(rect(gx, gz, 0.9, len + 0.2));
+  };
+  gondola(3.9, 0.3, 4.4);
+  gondola(5.7, 0.3, 4.4);
+  interactables.push({ label: 'Frescos: fruta, pan y lácteos', x: 3.1, z: 0.3, radius: 1.0, run: () => shelfPanel(gameRef(), cart, 'fresco') });
+  interactables.push({ label: 'Hogar y limpieza', x: 4.9, z: 0.3, radius: 1.0, run: () => shelfPanel(gameRef(), cart, 'hogar') });
+  const frescoSign = sign('FRESCOS', 'fruta · pan · lácteos', 1.3, 0.4);
+  frescoSign.position.set(3.9, 2.2, 0.3);
+  g.add(frescoSign);
+  const hogarSign = sign('HOGAR', 'limpieza · bazar', 1.3, 0.4);
+  hogarSign.position.set(5.7, 2.2, 0.3);
+  g.add(hogarSign);
 
   // luces
   g.add(new THREE.HemisphereLight('#fff4e6', '#4c4640', 0.65));

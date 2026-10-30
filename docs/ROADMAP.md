@@ -29,97 +29,94 @@
   centra al abrir), **Noticias** (feed), **Chat** de colegas (local), Ajustes.
 - **Ruleta Lightning** (primera versión): números con ⚡ y multiplicador en
   una tira arriba, la ficha tapa el número, lluvia de multiplicadores al
-  hacer pleno a un número con rayo.
-
----
-
-## PRÓXIMO (prioridad): Ruleta terminal estilo casino físico (MegaFire/Lightning)
-Referencia: terminal tipo ZUUM (varios puestos alrededor de una ruleta
-central, pantalla grande arriba con JACKPOT y números en fuego).
-
-Cómo debe funcionar (reemplaza el "pulsar E → panel soso" actual):
-1. **Te sientas** en un puesto del terminal (como sentarse en una silla).
-   La cámara mira a la pantalla del puesto.
-2. **La ruleta gira SOLA cada X tiempo** (ronda por tiempo, p.ej. 30-40 s):
-   - Fase de apuestas con cuenta atrás (barra/segundos en pantalla).
-   - Apuestas en la pantalla táctil: por **zonas** (docenas, color, par/impar…)
-     o por **números**; la **ficha queda en el centro del número y lo tapa**.
-   - Giro: **bola ultra realista** cayendo (ya existe el canvas, mejorarlo).
-3. **Pantalla superior** (la grande del terminal): en cada tiro aparecen
-   **números en fuego** (los "lucky/fire numbers") con su multiplicador.
-4. **Minijuego cuando toca un número en fuego** (estilo MegaFire):
-   - Caen **bolas** que se quedan en **cuadrados/bloques**.
-   - Caen **multiplicadores** x1 x2 x4 x5 x10 x15 x20…
-   - Si **llueve** (las bolas NO se quedan en los cuadrados) → **tirada gratis**;
-     si llueve **3 veces seguidas**, acaba.
-   - Al final se **suman los multiplicadores** acumulados = premio.
-   - Si se **rellenan bloques** y hay una **estrella arriba** → sale una
-     **ruleta de bonus x10 x100 x500 x1000**.
-5. Mantener el "no deja de ser un juego": fichas del casino, nada de €.
-
-Notas de implementación:
-- Hoy la ruleta es `roulettePanel` en `src/game/casino.ts` (canvas de rueda
-  + bola + tapete DOM + tira Lightning). Hay que convertirla en experiencia
-  de terminal con **ronda por tiempo** y el **minijuego de bolas/bloques**.
-- El terminal 3D está en `src/scene/casino.ts` (mesas `rouletteTable`).
-  Añadir puestos para sentarse (pose 'sentado' ya existe en Character).
-- CSS de la ruleta/Lightning al final de `src/game/game.css`.
+  hacer pleno a un número con rayo. (Sigue disponible como `roulettePanel`.)
+- **Ruleta terminal MegaFire**: terminal con ruleta central, pantalla grande
+  (JACKPOT + números en fuego) y puestos para **sentarse** (3 jugables + 2
+  NPC). **Rondas por tiempo** (16 s de apuestas con cuenta atrás, giro
+  automático, o "Girar ya"). Apuestas por zonas o números con la **ficha en el
+  centro del número**. Si la bola cae en un **número en fuego** donde tienes
+  ficha → **minijuego MegaFire**: bolas que caen en una rejilla 5×4 con
+  multiplicadores (×1…×20), **lluvia = tirada gratis** (3 seguidas y acaba),
+  al final se **suman los multiplicadores**, y si se **llenan los bloques con
+  estrella** → **ruleta de bonus ×10/×100/×500/×1000**. En móvil (Royale
+  Online) y en la Planta 3. `megaFireTerminalPanel` en `src/game/casino.ts`;
+  terminal 3D `megaFireTerminal()` en `src/scene/casino.ts`; CSS al final de
+  `src/game/game.css`.
 
 ---
 
 ## Backlog (siguientes bloques, uno por turno/chat)
 
 ### Casino
-- [ ] Ruleta terminal + minijuego MegaFire (arriba, PRIORIDAD).
-- [ ] **Slots estilo MegaFire**: con multiplicadores que caen, bonus y
-      tiradas gratis (misma estética que la ruleta nueva).
-- [ ] Sentarse físicamente en las mesas (ruleta, blackjack, baccarat).
-- [ ] Más juegos (gemas/diamantes, Mega Wheel…).
+- [x] Ruleta terminal + minijuego MegaFire.
+- [x] **Slots MegaFire**: orbes 🔥 con multiplicador, colector 💰 que los
+      cobra todos, 3+ ⭐ = tiradas gratis con multiplicador creciente, 🎁 =
+      ruleta de bonus ×10…×1000. `megaFireSlotsPanel` en `src/game/casino.ts`,
+      cabina 3D `megaFireSlotsCabinet()`, en el móvil y en el menú de slots.
+- [x] Sentarse físicamente en las mesas: ruleta MegaFire (ya), blackjack,
+      póker y baccarat. Taburete por mesa; al cerrar la ventana te levantas.
+- [x] Más juegos: **Gemas (Mines)** (descubre gemas, evita bombas, 3/5/10
+      bombas, retírate cuando quieras) y **Mega Wheel** (rueda del dinero con
+      top slot). `minesPanel`/`megaWheelPanel`; arcades 3D en la Planta 3 y en
+      el móvil.
 
 ### Cajeros interactivos (Las Vegas / banco real)
-- [ ] **Cajero BBVA SL**: entras → pantalla grande "inserte tarjeta" →
-      metes tarjeta → PIN → ves saldo → sacar / ingresar, con interfaz de
-      banco. Opción de **ingresar a un IBAN** (sin tarjeta).
-- [ ] **Cajero Bitcoin estilo Bitbase**: compra cripto; **saca un papel con
-      un QR** y luego lo **escaneas en otro apartado** del cajero. Sustituye
-      al "tío que cambia bitcoin".
-- [ ] App del móvil: **Bizum** y **transferencias** a otros amigos (IBAN).
+- [x] **Cajero BBVA SL**: pantalla "inserte su tarjeta" → insertar tarjeta →
+      PIN → saldo → sacar / ingresar. Además **ingreso a un IBAN sin tarjeta**
+      (metes efectivo y lo manda a esa cuenta). `atmPanel` en `src/game/bank.ts`.
+- [x] **Cajero Bitcoin Bitbase** (en el vestíbulo, junto a los cajeros):
+      comprar cripto con efectivo → **imprime un vale con QR** → lo
+      **escaneas en el lector** del cajero y recibes la cripto; también vende
+      cripto por efectivo. `bitbasePanel` en `src/game/bank.ts`. (La mesa OTC
+      del cambista de la Planta Gris sigue, es lavado del lado oscuro.)
+- [x] App del móvil (banco → Enviar): **Bizum** a colegas (contactos +
+      importes rápidos) y **transferencias** por IBAN. En `bankApp` (apps.ts).
 
 ### Supermercado (grande grande)
-- [ ] Hacerlo mucho más grande (es clave: los dropshippers venden productos
-      que aparecen en las **vitrinas**; si otro jugador compra, gana el
-      vendedor). Se vende de todo: móviles, armas, etc.
-- [ ] **Stand de tabaco** con distintos paquetes bien puestos en estantería +
-      **máquina interactiva** al lado: aparece cada paquete con su precio,
-      saca el tabaco y se paga en el autopago.
-- [ ] **Autopago estilo Carrefour**: cuadrado con varias máquinas
-      interactivas; metes productos → lista y total → pagar con efectivo o
-      tarjeta → **ticket**. **Tarjeta de la tienda** (descuentos) que se mete
-      antes de pagar.
-- [ ] **Caja atendida**: dejas los artículos, el empleado los pasa, y el
-      carrito se queda al lado de la caja.
+- [~] Más grande por dentro: **pasillos (góndolas)** en el centro con
+      productos a la vista y **2 categorías nuevas** (Frescos: fruta/pan/lácteos
+      y Hogar/limpieza, 11 productos). Pendiente de la fase multijugador: que
+      los dropshippers vendan en las vitrinas y gane el vendedor cuando otro
+      jugador compra (requiere servidor).
+- [x] **Máquina de tabaco** junto al estanco: expendedora con los paquetes;
+      eliges y se cobra en el autopago (abre la selección del estanco).
+- [x] **Autopago estilo Carrefour**: varias autocajas; lista + total →
+      **tarjeta de la tienda** (−8%, alta gratis) → pagar efectivo/tarjeta →
+      **ticket impreso** con sello PAGADO. `checkoutPanel('self')`.
+- [x] **Caja atendida**: el cajero "pasa" los artículos (barra de escaneo)
+      antes de poder pagar; el carrito se queda al lado. `checkoutPanel('staffed')`.
 
 ### Ocio / animaciones
-- [ ] Animaciones de fumar **más profesionales y de ~10 s**: se ve fumando,
-      **liando un porro**, fumando **bong**, o **hinchando/vaciando un globo**.
+- [x] Animaciones de ocio de ~10 s en `Character`: fumar (cigarro a la boca con
+      caladas, brasa que brilla y se consume, humo), **liar un porro** (lo lía
+      entre las manos ~5 s y luego lo fuma), **bong** y **globo** (se hincha y
+      se vacía dando bandazos con escape de aire).
 
 ### Identidad
-- [ ] **Logo Brokerstar** (imagen azul "BROKERSTAR Global Financial
-      Solutions") como logo de empresa/edificio, e icono del casino con el
-      logo enviado (renombrar si colisiona con nombre existente).
-- [ ] Móvil: **cambiar fondo de pantalla**, mejorar la interfaz.
+- [x] **Logo Brokerstar** (azul "BROKERSTAR · Global Financial Solutions" con
+      estrella) generado por canvas: cartel 3D sobre la entrada del vestíbulo
+      y cabecera de Ajustes (`brokerstarLogoDataUrl` en apps.ts).
+- [x] Móvil: **cambiar fondo de pantalla** (6 fondos en Ajustes, se guarda la
+      elección) + barra de estado. Falta: icono del casino con el logo enviado
+      (no tengo el archivo de imagen).
 
 ### Deportivas
-- [ ] Pantalla de partidos mejorada: **partidos de fútbol reales**, que
-      **duren ~3 min** y se pueda apostar; varios a lo largo del día.
+- [x] Apuestas deportivas mejoradas: partidos reales de **~3 min** (antes 5),
+      que se juegan **en orden uno tras otro todo el día**, con lista de
+      **próximos partidos** y cuenta atrás, y **apuestas pre-partido** a los
+      que aún no han empezado (además del que está en juego).
 
 ### Lado oscuro (versión GTA, abstracto)
-- [ ] Sender con **campañas y logos**, CRM de **leads/conversiones**.
-- [ ] **Víctimas** con **patrimonio estimado** y **nivel de seguridad**;
-      decidir si "compensa" el golpe.
-- [ ] **Golpe = minijuego de riesgo** (no credenciales reales), con premio
-      abstracto y **calor policial** si falla.
-- [ ] **Telegram de mulas** con cortes y porcentajes.
+- [x] Sender con **plantillas/logos** de campaña (paquetería, banco, premio…)
+      que afectan a la calidad, y **CRM** con embudo (leads, golpes,
+      conversiones, tasa de éxito, ganado).
+- [x] **Víctimas** con **patrimonio estimado** y **nivel de seguridad** 🛡️
+      (1-5) + pista de si "compensa"; la seguridad sube la dificultad del
+      golpe y la busca si fallas.
+- [x] **Golpe = minijuego de riesgo** (llamada con decisiones, sin credenciales
+      reales), premio abstracto y **busca policial** si falla (ya existía,
+      ahora escala con la seguridad).
+- [x] **Telegram de mulas** con cortes y porcentajes (ya existía).
 
 ### Multijugador (fase grande)
 - [ ] Servidor autoritativo: chat real, ver a los colegas, **cada grupo su

@@ -1,8 +1,8 @@
-import { baccaratPanel, blackjackPanel, cashierPanel, crazyTimePanel, pokerPanel, roulettePanel, slotsMenu, sportsbookPanel } from './casino';
+import { baccaratPanel, blackjackPanel, cashierPanel, crazyTimePanel, megaFireSlotsPanel, megaFireTerminalPanel, megaWheelPanel, minesPanel, pokerPanel, slotsMenu, sportsbookPanel } from './casino';
 import { BANK_NAME, LOAN_OFFERS } from './config';
 import { button, el, euros } from './hud';
 import type { Market } from './market';
-import type { Phone, PhoneApp } from './phone';
+import { WALLPAPERS, getWallpaperId, setWallpaper, type Phone, type PhoneApp } from './phone';
 import type { Game } from './world';
 
 // Apps del móvil: banco, Wallet de cripto, mensajes y ajustes.
@@ -49,9 +49,18 @@ function movIcon(concept: string) {
   return '💳';
 }
 
+const BIZUM_CONTACTS = [
+  { name: 'Marcos', emoji: '🧑‍💼' },
+  { name: 'Lucía', emoji: '👩' },
+  { name: 'Dani', emoji: '🧑' },
+  { name: 'Sofía', emoji: '👩‍🦰' },
+];
+
 export function bankApp(game: Game): PhoneApp {
   let tab: 'inicio' | 'enviar' | 'prestamos' | 'tarjeta' = 'inicio';
   let filter: 'todo' | 'in' | 'out' = 'todo';
+  let sendMode: 'bizum' | 'iban' = 'bizum';
+  let bzTo = '';
   return {
     id: 'banco', name: BANK_NAME, icon: '🏦', color: 'linear-gradient(135deg,#1464c8,#072146)', dock: true, light: true,
     render: (body, phone) => {
@@ -107,24 +116,60 @@ export function bankApp(game: Game): PhoneApp {
           body.append(row);
         }
       } else if (tab === 'enviar') {
-        body.append(el('p', 'muted', 'Envía dinero a la cuenta de un colega al momento.'));
-        const to = el('input', 'field') as HTMLInputElement;
-        to.placeholder = 'IBAN de destino (ES…)';
-        const amount = el('input', 'field') as HTMLInputElement;
-        amount.type = 'number';
-        amount.placeholder = 'Importe €';
-        const concept = el('input', 'field') as HTMLInputElement;
-        concept.placeholder = 'Concepto';
-        body.append(to, amount, concept, button('Enviar', () => {
-          const n = Number(amount.value);
-          if (!to.value.trim() || !(n > 0)) return hud.toast('Pon el IBAN y el importe', 'bad');
-          if (!state.transfer(n, to.value.trim(), concept.value.trim())) return hud.toast('Saldo insuficiente', 'bad');
-          hud.toast(`↗️ ${euros(n)} enviados`, 'ok');
-          tab = 'inicio';
-          phone.refresh();
-        }));
-        body.append(el('div', 'bk-mov'));
-        (body.lastChild as HTMLElement).innerHTML = `<span class="bk-ic">🔗</span><span class="bk-c"><b>Tu IBAN</b><small>${d.account}</small></span>`;
+        const seg = el('div', 'seg');
+        for (const [id, label] of [['bizum', '📲 Bizum'], ['iban', '🔗 Transferencia']] as const) {
+          const b = el('button', sendMode === id ? 'on' : '', label);
+          b.onclick = () => { sendMode = id; phone.refresh(); };
+          seg.append(b);
+        }
+        body.append(seg);
+        if (sendMode === 'bizum') {
+          body.append(el('p', 'muted', 'Bizum al instante a tus colegas, por el móvil.'));
+          const picks = el('div', 'bz-contacts');
+          for (const c of BIZUM_CONTACTS) {
+            const b = el('button', 'bz-contact' + (bzTo === c.name ? ' on' : ''));
+            b.innerHTML = `<span class="bz-av">${c.emoji}</span>${c.name}`;
+            b.onclick = () => { bzTo = c.name; phone.refresh(); };
+            picks.append(b);
+          }
+          body.append(picks);
+          const amount = el('input', 'field') as HTMLInputElement;
+          amount.type = 'number';
+          amount.placeholder = 'Importe €';
+          const quick = el('div', 'bz-quick');
+          for (const q of [5, 10, 20, 50]) quick.append(button('€' + q, () => { amount.value = String(q); }, 'btn small'));
+          const concept = el('input', 'field') as HTMLInputElement;
+          concept.placeholder = 'Concepto (opcional)';
+          body.append(amount, quick, concept, button('Enviar Bizum', () => {
+            const n = Math.floor(Number(amount.value));
+            if (!bzTo) return hud.toast('Elige a quién se lo mandas', 'bad');
+            if (!(n > 0)) return hud.toast('Pon el importe', 'bad');
+            if (!state.transfer(n, `${bzTo} (Bizum)`, concept.value.trim())) return hud.toast('Saldo insuficiente', 'bad');
+            hud.toast(`📲 Bizum de ${euros(n)} a ${bzTo}`, 'ok');
+            state.chatSay(bzTo, `¡gracias por el bizum de ${euros(n)}! 🙌`);
+            tab = 'inicio';
+            phone.refresh();
+          }));
+        } else {
+          body.append(el('p', 'muted', 'Transferencia a la cuenta de un colega al instante.'));
+          const to = el('input', 'field') as HTMLInputElement;
+          to.placeholder = 'IBAN de destino (ES…)';
+          const amount = el('input', 'field') as HTMLInputElement;
+          amount.type = 'number';
+          amount.placeholder = 'Importe €';
+          const concept = el('input', 'field') as HTMLInputElement;
+          concept.placeholder = 'Concepto';
+          body.append(to, amount, concept, button('Enviar', () => {
+            const n = Number(amount.value);
+            if (!to.value.trim() || !(n > 0)) return hud.toast('Pon el IBAN y el importe', 'bad');
+            if (!state.transfer(n, to.value.trim(), concept.value.trim())) return hud.toast('Saldo insuficiente', 'bad');
+            hud.toast(`↗️ ${euros(n)} enviados`, 'ok');
+            tab = 'inicio';
+            phone.refresh();
+          }));
+          body.append(el('div', 'bk-mov'));
+          (body.lastChild as HTMLElement).innerHTML = `<span class="bk-ic">🔗</span><span class="bk-c"><b>Tu IBAN</b><small>${d.account}</small></span>`;
+        }
       } else if (tab === 'prestamos') {
         if (!d.loans.length) body.append(el('p', 'muted', 'No tienes préstamos.'));
         for (const l of d.loans) {
@@ -256,10 +301,13 @@ export function casinoApp(game: Game): PhoneApp {
   const GAMES: { icon: string; name: string; sub: string; run: () => void }[] = [
     { icon: '🎡', name: 'Crazy Time', sub: 'Rueda del dinero + bonus', run: () => crazyTimePanel(game) },
     { icon: '🃏', name: 'Speed Baccarat', sub: 'Jugador · Banca · Empate', run: () => baccaratPanel(game) },
-    { icon: '🎯', name: 'Ruleta', sub: 'Europea, bola física', run: () => roulettePanel(game) },
+    { icon: '🔥', name: 'Ruleta MegaFire', sub: 'Rondas por tiempo + minijuego', run: () => megaFireTerminalPanel(game) },
     { icon: '🂡', name: 'Blackjack', sub: '3:2 · split y seguro', run: () => blackjackPanel(game) },
+    { icon: '🔥', name: 'Slots MegaFire', sub: 'Orbes, colector y bonus', run: () => megaFireSlotsPanel(game) },
     { icon: '🎰', name: 'Tragaperras', sub: '3 máquinas propias', run: () => slotsMenu(game) },
     { icon: '♠️', name: 'Póker', sub: 'contra la casa', run: () => pokerPanel(game) },
+    { icon: '💎', name: 'Gemas', sub: 'descubre y retírate', run: () => minesPanel(game) },
+    { icon: '🎡', name: 'Mega Wheel', sub: 'rueda con top slot', run: () => megaWheelPanel(game) },
     { icon: '⚽', name: 'Apuestas', sub: 'partidos en directo', run: () => sportsbookPanel(game) },
   ];
   return {
@@ -377,12 +425,59 @@ export function chatApp(game: Game): PhoneApp {
   };
 }
 
+// logo de la empresa, dibujado en un canvas (azul «BROKERSTAR Global
+// Financial Solutions»); se usa en Ajustes y se puede reutilizar como icono.
+export function brokerstarLogoDataUrl(w = 320, h = 120): string {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d')!;
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, '#1b6fe0'); grad.addColorStop(1, '#0a2f7a');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
+  // estrella
+  ctx.save();
+  ctx.translate(w * 0.14, h * 0.5);
+  ctx.fillStyle = '#ffd84a';
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? h * 0.26 : h * 0.1;
+    const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+    ctx[i === 0 ? 'moveTo' : 'lineTo'](Math.cos(a) * r, Math.sin(a) * r);
+  }
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#fff';
+  ctx.font = '800 30px Inter, sans-serif';
+  ctx.fillText('BROKERSTAR', w * 0.26, h * 0.46);
+  ctx.fillStyle = '#bcd4ff';
+  ctx.font = '600 13px Inter, sans-serif';
+  ctx.fillText('Global Financial Solutions', w * 0.26, h * 0.68);
+  return c.toDataURL('image/png');
+}
+
 export function settingsApp(game: Game): PhoneApp {
   return {
     id: 'ajustes', name: 'Ajustes', icon: '⚙️', color: 'linear-gradient(135deg,#a6a6ab,#5b5b60)', dock: true, light: true,
-    render: (body) => {
+    render: (body, phone) => {
+      const logo = el('img', 'bs-logo') as HTMLImageElement;
+      logo.src = brokerstarLogoDataUrl();
+      logo.alt = 'Brokerstar Global Financial Solutions';
+      body.append(logo);
       body.append(el('div', 'bk-mov'));
-      (body.firstChild as HTMLElement).innerHTML = `<span class="bk-ic">📱</span><span class="bk-c"><b>${game.state.data.phoneModel}</b><small>Brokerstars OS · demo 0.3</small></span>`;
+      (body.lastChild as HTMLElement).innerHTML = `<span class="bk-ic">📱</span><span class="bk-c"><b>${game.state.data.phoneModel}</b><small>Brokerstars OS · demo 0.3</small></span>`;
+      // fondo de pantalla
+      body.append(el('div', 'section', 'Fondo de pantalla'));
+      const grid = el('div', 'wp-grid');
+      for (const w of WALLPAPERS) {
+        const b = el('button', 'wp-swatch' + (getWallpaperId() === w.id ? ' on' : ''));
+        b.style.background = w.css;
+        b.append(el('span', 'wp-name', w.name));
+        b.onclick = () => { setWallpaper(w.id); phone.refresh(); };
+        grid.append(b);
+      }
+      body.append(grid);
+      body.append(el('div', 'section', 'Sistema'));
       const reset = button('Empezar partida nueva', () => {
         reset.textContent = 'Pulsa otra vez para confirmar';
         reset.onclick = () => {
