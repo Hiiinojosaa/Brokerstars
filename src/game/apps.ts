@@ -2,7 +2,7 @@ import { baccaratPanel, blackjackPanel, cashierPanel, crazyTimePanel, megaFireSl
 import { BANK_NAME, LOAN_OFFERS } from './config';
 import { button, el, euros } from './hud';
 import type { Market } from './market';
-import type { Phone, PhoneApp } from './phone';
+import { WALLPAPERS, getWallpaperId, setWallpaper, type Phone, type PhoneApp } from './phone';
 import type { Game } from './world';
 
 // Apps del móvil: banco, Wallet de cripto, mensajes y ajustes.
@@ -423,12 +423,59 @@ export function chatApp(game: Game): PhoneApp {
   };
 }
 
+// logo de la empresa, dibujado en un canvas (azul «BROKERSTAR Global
+// Financial Solutions»); se usa en Ajustes y se puede reutilizar como icono.
+export function brokerstarLogoDataUrl(w = 320, h = 120): string {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d')!;
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, '#1b6fe0'); grad.addColorStop(1, '#0a2f7a');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
+  // estrella
+  ctx.save();
+  ctx.translate(w * 0.14, h * 0.5);
+  ctx.fillStyle = '#ffd84a';
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? h * 0.26 : h * 0.1;
+    const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+    ctx[i === 0 ? 'moveTo' : 'lineTo'](Math.cos(a) * r, Math.sin(a) * r);
+  }
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#fff';
+  ctx.font = '800 30px Inter, sans-serif';
+  ctx.fillText('BROKERSTAR', w * 0.26, h * 0.46);
+  ctx.fillStyle = '#bcd4ff';
+  ctx.font = '600 13px Inter, sans-serif';
+  ctx.fillText('Global Financial Solutions', w * 0.26, h * 0.68);
+  return c.toDataURL('image/png');
+}
+
 export function settingsApp(game: Game): PhoneApp {
   return {
     id: 'ajustes', name: 'Ajustes', icon: '⚙️', color: 'linear-gradient(135deg,#a6a6ab,#5b5b60)', dock: true, light: true,
-    render: (body) => {
+    render: (body, phone) => {
+      const logo = el('img', 'bs-logo') as HTMLImageElement;
+      logo.src = brokerstarLogoDataUrl();
+      logo.alt = 'Brokerstar Global Financial Solutions';
+      body.append(logo);
       body.append(el('div', 'bk-mov'));
-      (body.firstChild as HTMLElement).innerHTML = `<span class="bk-ic">📱</span><span class="bk-c"><b>${game.state.data.phoneModel}</b><small>Brokerstars OS · demo 0.3</small></span>`;
+      (body.lastChild as HTMLElement).innerHTML = `<span class="bk-ic">📱</span><span class="bk-c"><b>${game.state.data.phoneModel}</b><small>Brokerstars OS · demo 0.3</small></span>`;
+      // fondo de pantalla
+      body.append(el('div', 'section', 'Fondo de pantalla'));
+      const grid = el('div', 'wp-grid');
+      for (const w of WALLPAPERS) {
+        const b = el('button', 'wp-swatch' + (getWallpaperId() === w.id ? ' on' : ''));
+        b.style.background = w.css;
+        b.append(el('span', 'wp-name', w.name));
+        b.onclick = () => { setWallpaper(w.id); phone.refresh(); };
+        grid.append(b);
+      }
+      body.append(grid);
+      body.append(el('div', 'section', 'Sistema'));
       const reset = button('Empezar partida nueva', () => {
         reset.textContent = 'Pulsa otra vez para confirmar';
         reset.onclick = () => {

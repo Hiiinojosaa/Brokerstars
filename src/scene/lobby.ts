@@ -280,6 +280,24 @@ export function createLobby(gameRef: () => Game): Floor {
     colliders.push(rect(px, pz, 0.45, 0.45));
   }
   g.add(cyl(0.02, 1, mats.steel, -0.8, 0.5, 4.6), cyl(0.02, 1, mats.steel, 0.8, 0.5, 4.6));
+  // logo corporativo Brokerstar sobre la entrada del vestíbulo
+  const logoTex = canvasTex(512, 160, (ctx) => {
+    const grad = ctx.createLinearGradient(0, 0, 0, 160);
+    grad.addColorStop(0, '#1b6fe0'); grad.addColorStop(1, '#0a2f7a');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, 512, 160);
+    ctx.save(); ctx.translate(78, 80); ctx.fillStyle = '#ffd84a';
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) { const r = i % 2 === 0 ? 46 : 18; const a = (i / 10) * Math.PI * 2 - Math.PI / 2; ctx[i === 0 ? 'moveTo' : 'lineTo'](Math.cos(a) * r, Math.sin(a) * r); }
+    ctx.closePath(); ctx.fill(); ctx.restore();
+    ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.font = '800 50px sans-serif';
+    ctx.fillText('BROKERSTAR', 140, 78);
+    ctx.fillStyle = '#bcd4ff'; ctx.font = '600 22px sans-serif';
+    ctx.fillText('Global Financial Solutions', 142, 112);
+  });
+  const logo = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.06), new THREE.MeshStandardMaterial({ map: logoTex, emissive: '#ffffff', emissiveMap: logoTex, emissiveIntensity: 0.5 }));
+  logo.position.set(0, 3.05, D / 2 - 0.06);
+  logo.rotation.y = Math.PI;
+  g.add(logo);
   // la mula que paga en efectivo espera junto a la entrada
   const mule = new Character({ ...PRESETS[0], name: 'Mula', hat: 'gorra', hatColor: '#1c1c1c', glasses: 'ninguna', top: 'sudadera', topColor: '#3d4045', print: 'ninguno', pants: 'anchos', pantsColor: '#2f4d7a', shoes: 'bajas', shoesColor: '#f2f2f2', face: 'serio', skin: '#d9a77e' });
   mule.root.position.set(-1.6, 0, 5.2);

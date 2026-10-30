@@ -141,6 +141,12 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0f0d16; col
 .bz-contact.on .bz-av { background: rgba(255,255,255,.25); }
 .bz-quick { display: flex; gap: 6px; margin: 4px 0; }
 .bz-quick .btn { flex: 1; }
+/* --- identidad: logo y fondos de pantalla --- */
+.bs-logo { width: 100%; border-radius: 12px; display: block; }
+.wp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.wp-swatch { height: 86px; border-radius: 14px; border: 2px solid transparent; position: relative; cursor: pointer; display: flex; align-items: flex-end; padding: 6px; }
+.wp-swatch.on { border-color: #fff; box-shadow: 0 0 0 2px #1464c8; }
+.wp-name { font: 700 11px Inter, sans-serif; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
 .bk-ic { width: 32px; height: 32px; border-radius: 10px; background: #eef2f8; display: grid; place-items: center; font-size: 16px; }
 .bk-c { display: flex; flex-direction: column; min-width: 0; } .bk-c small { color: #888; font-weight: 500; } .bk-c b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bk-c i { font-style: normal; }

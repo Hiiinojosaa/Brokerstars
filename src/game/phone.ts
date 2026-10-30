@@ -19,6 +19,26 @@ export interface PhoneApp {
   render(body: HTMLElement, phone: Phone): void;
 }
 
+// fondos de pantalla elegibles en Ajustes (se guarda la elección en el móvil)
+export const WALLPAPERS: { id: string; name: string; css: string }[] = [
+  { id: 'default', name: 'Brokerstars', css: 'radial-gradient(120% 80% at 20% 0%, #ff8a3d 0%, #b3245c 35%, #3a1563 65%, #0b0d2e 100%)' },
+  { id: 'brokerstar', name: 'Brokerstar', css: 'linear-gradient(160deg, #1b6fe0 0%, #0a2f7a 55%, #04122e 100%)' },
+  { id: 'noche', name: 'Noche', css: 'radial-gradient(130% 120% at 50% 0%, #2a3350, #0a0e1a)' },
+  { id: 'fire', name: 'MegaFire', css: 'radial-gradient(130% 120% at 50% 0%, #5a1e06, #140603)' },
+  { id: 'menta', name: 'Menta', css: 'linear-gradient(160deg, #15c79a, #073a2a)' },
+  { id: 'neon', name: 'Neón', css: 'linear-gradient(160deg, #7a1fd0, #2a0550 60%, #10021f)' },
+];
+const WALLPAPER_KEY = 'brokerstars.wallpaper';
+export function getWallpaperId(): string {
+  try { return localStorage.getItem(WALLPAPER_KEY) || 'default'; } catch { return 'default'; }
+}
+export function getWallpaperCss(): string | undefined {
+  return WALLPAPERS.find((w) => w.id === getWallpaperId())?.css;
+}
+export function setWallpaper(id: string) {
+  try { localStorage.setItem(WALLPAPER_KEY, id); } catch { /* sin almacenamiento */ }
+}
+
 export class Phone {
   private root = el('div', 'phone');
   private screen = el('div', 'phone-screen');
@@ -92,9 +112,12 @@ export class Phone {
   private render() {
     this.screen.innerHTML = '';
     this.screen.className = 'phone-screen';
+    this.screen.style.background = '';
     this.root.dataset.app = this.current?.id ?? 'home';
     if (!this.current) {
       this.screen.classList.add('home');
+      const wp = getWallpaperCss();
+      if (wp) this.screen.style.background = wp;
       // widgets: reloj grande y objetivo
       const clock = el('div', 'widget-clock');
       clock.append(el('div', 'wc-date', `Día ${this.state.day}`), el('div', 'wc-time', this.state.clock()));

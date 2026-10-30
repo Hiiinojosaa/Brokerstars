@@ -88,10 +88,12 @@
       se vacía dando bandazos con escape de aire).
 
 ### Identidad
-- [ ] **Logo Brokerstar** (imagen azul "BROKERSTAR Global Financial
-      Solutions") como logo de empresa/edificio, e icono del casino con el
-      logo enviado (renombrar si colisiona con nombre existente).
-- [ ] Móvil: **cambiar fondo de pantalla**, mejorar la interfaz.
+- [x] **Logo Brokerstar** (azul "BROKERSTAR · Global Financial Solutions" con
+      estrella) generado por canvas: cartel 3D sobre la entrada del vestíbulo
+      y cabecera de Ajustes (`brokerstarLogoDataUrl` en apps.ts).
+- [x] Móvil: **cambiar fondo de pantalla** (6 fondos en Ajustes, se guarda la
+      elección) + barra de estado. Falta: icono del casino con el logo enviado
+      (no tengo el archivo de imagen).
 
 ### Deportivas
 - [ ] Pantalla de partidos mejorada: **partidos de fútbol reales**, que
