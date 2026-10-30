@@ -171,7 +171,7 @@ select.field { width: auto; }
 .item span { white-space: pre-line; }
 .item { grid-template-columns: 30px 1fr auto auto; }
 /* --- banco --- */
-.atm-screen { background: #0d2a52; color: #cfe2ff; border-radius: 10px; padding: 14px; font-family: ui-monospace, monospace; text-align: center; }
+.atm-screen { background: #0d2a52; color: #cfe2ff; border-radius: 10px; padding: 14px; font-family: ui-monospace, monospace; text-align: center; white-space: pre-line; }
 .atm-pin { font-size: 28px; letter-spacing: 8px; margin: 8px 0; }
 .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 280px; margin: 0 auto; }
 .key { background: #2b2f3a; color: var(--text); border: 0; border-radius: 12px; padding: 14px; font: 800 20px Inter, sans-serif; cursor: pointer; }

@@ -58,9 +58,9 @@
 - [ ] Más juegos (gemas/diamantes, Mega Wheel…).
 
 ### Cajeros interactivos (Las Vegas / banco real)
-- [ ] **Cajero BBVA SL**: entras → pantalla grande "inserte tarjeta" →
-      metes tarjeta → PIN → ves saldo → sacar / ingresar, con interfaz de
-      banco. Opción de **ingresar a un IBAN** (sin tarjeta).
+- [x] **Cajero BBVA SL**: pantalla "inserte su tarjeta" → insertar tarjeta →
+      PIN → saldo → sacar / ingresar. Además **ingreso a un IBAN sin tarjeta**
+      (metes efectivo y lo manda a esa cuenta). `atmPanel` en `src/game/bank.ts`.
 - [ ] **Cajero Bitcoin estilo Bitbase**: compra cripto; **saca un papel con
       un QR** y luego lo **escaneas en otro apartado** del cajero. Sustituye
       al "tío que cambia bitcoin".

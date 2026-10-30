@@ -95,30 +95,66 @@ export function loansPanel(game: Game) {
 }
 
 export function atmPanel(game: Game) {
+  const { hud } = game;
+  hud.openPanel(`Cajero ${BANK_NAME}`, (body) => atmIntro(game, body));
+}
+
+// pantalla de inicio: insertar tarjeta o ingresar a un IBAN sin tarjeta
+function atmIntro(game: Game, body: HTMLElement) {
   const { state, hud } = game;
-  if (!state.data.hasAccount) return hud.toast('No tienes cuenta: ábrela en la ventanilla del banco', 'bad');
-  if (!state.hasCard) return hud.toast('No llevas la tarjeta encima. Pide otra en la ventanilla.', 'bad');
-  hud.openPanel(`Cajero ${BANK_NAME}`, (body) => {
-    // pantalla del PIN
-    const screen = el('div', 'atm-screen');
-    let pin = '';
-    const show = () => (screen.innerHTML = `<div>Introduzca su PIN</div><div class="atm-pin">${'●'.repeat(pin.length)}${'○'.repeat(4 - pin.length)}</div><div class="muted">Te lo mandó el banco al móvil</div>`);
-    show();
-    const keypad = el('div', 'keypad');
-    for (const k of ['1', '2', '3', '4', '5', '6', '7', '8', '9', '⌫', '0', 'OK']) {
-      keypad.append(button(k, () => {
-        if (k === '⌫') pin = pin.slice(0, -1);
-        else if (k === 'OK') {
-          if (pin === state.data.pin) return atmMenu(game, body);
-          pin = '';
-          hud.toast('PIN incorrecto', 'bad');
-        } else if (pin.length < 4) pin += k;
-        show();
-        if (pin.length === 4 && pin === state.data.pin) atmMenu(game, body);
-      }, 'key'));
-    }
-    body.append(screen, keypad);
-  });
+  body.innerHTML = '';
+  body.append(el('div', 'atm-screen', `${BANK_NAME}\nInserte su tarjeta`));
+  body.append(el('p', 'muted', 'Opere con su cuenta insertando la tarjeta, o ingrese efectivo a un IBAN sin tarjeta.'));
+  body.append(button('💳 Insertar tarjeta', () => {
+    if (!state.data.hasAccount) return hud.toast('No tienes cuenta: ábrela en la ventanilla del banco', 'bad');
+    if (!state.hasCard) return hud.toast('No llevas la tarjeta encima. Pide otra en la ventanilla.', 'bad');
+    atmPin(game, body);
+  }));
+  body.append(button('🏦 Ingresar efectivo a un IBAN (sin tarjeta)', () => atmIbanDeposit(game, body), 'btn ghost'));
+}
+
+// teclado del PIN
+function atmPin(game: Game, body: HTMLElement) {
+  const { state, hud } = game;
+  body.innerHTML = '';
+  const screen = el('div', 'atm-screen');
+  let pin = '';
+  const show = () => (screen.innerHTML = `<div>Introduzca su PIN</div><div class="atm-pin">${'●'.repeat(pin.length)}${'○'.repeat(4 - pin.length)}</div><div class="muted">Te lo mandó el banco al móvil</div>`);
+  show();
+  const keypad = el('div', 'keypad');
+  for (const k of ['1', '2', '3', '4', '5', '6', '7', '8', '9', '⌫', '0', 'OK']) {
+    keypad.append(button(k, () => {
+      if (k === '⌫') pin = pin.slice(0, -1);
+      else if (k === 'OK') {
+        if (pin === state.data.pin) return atmMenu(game, body);
+        pin = '';
+        hud.toast('PIN incorrecto', 'bad');
+      } else if (pin.length < 4) pin += k;
+      show();
+      if (pin.length === 4 && pin === state.data.pin) atmMenu(game, body);
+    }, 'key'));
+  }
+  body.append(screen, keypad, button('‹ Cancelar', () => atmIntro(game, body), 'btn ghost'));
+}
+
+// ingreso de efectivo a un IBAN ajeno, sin necesidad de tarjeta
+function atmIbanDeposit(game: Game, body: HTMLElement) {
+  const { state, hud } = game;
+  body.innerHTML = '';
+  body.append(el('div', 'atm-screen', `Ingreso a IBAN\nEfectivo: ${euros(state.data.cash)}`));
+  const iban = input('IBAN de destino (ES…)');
+  const amount = input('Cantidad en efectivo', 'number');
+  body.append(el('p', 'muted', 'El cajero cuenta tu efectivo y lo ingresa en esa cuenta.'), iban, amount);
+  body.append(button('Ingresar', () => {
+    const dest = iban.value.trim();
+    const n = Math.floor(Number(amount.value));
+    if (!dest) return hud.toast('Escribe el IBAN de destino', 'bad');
+    if (!(n > 0)) return hud.toast('Escribe una cantidad', 'bad');
+    if (!state.deposit(n, dest)) return hud.toast('No llevas tanto efectivo', 'bad');
+    hud.toast(`✅ Ingresados ${euros(n)} en ${dest}`, 'ok');
+    atmIntro(game, body);
+  }));
+  body.append(button('‹ Volver', () => atmIntro(game, body), 'btn ghost'));
 }
 
 function atmMenu(game: Game, body: HTMLElement) {
