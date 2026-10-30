@@ -49,9 +49,18 @@ function movIcon(concept: string) {
   return '💳';
 }
 
+const BIZUM_CONTACTS = [
+  { name: 'Marcos', emoji: '🧑‍💼' },
+  { name: 'Lucía', emoji: '👩' },
+  { name: 'Dani', emoji: '🧑' },
+  { name: 'Sofía', emoji: '👩‍🦰' },
+];
+
 export function bankApp(game: Game): PhoneApp {
   let tab: 'inicio' | 'enviar' | 'prestamos' | 'tarjeta' = 'inicio';
   let filter: 'todo' | 'in' | 'out' = 'todo';
+  let sendMode: 'bizum' | 'iban' = 'bizum';
+  let bzTo = '';
   return {
     id: 'banco', name: BANK_NAME, icon: '🏦', color: 'linear-gradient(135deg,#1464c8,#072146)', dock: true, light: true,
     render: (body, phone) => {
@@ -107,24 +116,60 @@ export function bankApp(game: Game): PhoneApp {
           body.append(row);
         }
       } else if (tab === 'enviar') {
-        body.append(el('p', 'muted', 'Envía dinero a la cuenta de un colega al momento.'));
-        const to = el('input', 'field') as HTMLInputElement;
-        to.placeholder = 'IBAN de destino (ES…)';
-        const amount = el('input', 'field') as HTMLInputElement;
-        amount.type = 'number';
-        amount.placeholder = 'Importe €';
-        const concept = el('input', 'field') as HTMLInputElement;
-        concept.placeholder = 'Concepto';
-        body.append(to, amount, concept, button('Enviar', () => {
-          const n = Number(amount.value);
-          if (!to.value.trim() || !(n > 0)) return hud.toast('Pon el IBAN y el importe', 'bad');
-          if (!state.transfer(n, to.value.trim(), concept.value.trim())) return hud.toast('Saldo insuficiente', 'bad');
-          hud.toast(`↗️ ${euros(n)} enviados`, 'ok');
-          tab = 'inicio';
-          phone.refresh();
-        }));
-        body.append(el('div', 'bk-mov'));
-        (body.lastChild as HTMLElement).innerHTML = `<span class="bk-ic">🔗</span><span class="bk-c"><b>Tu IBAN</b><small>${d.account}</small></span>`;
+        const seg = el('div', 'seg');
+        for (const [id, label] of [['bizum', '📲 Bizum'], ['iban', '🔗 Transferencia']] as const) {
+          const b = el('button', sendMode === id ? 'on' : '', label);
+          b.onclick = () => { sendMode = id; phone.refresh(); };
+          seg.append(b);
+        }
+        body.append(seg);
+        if (sendMode === 'bizum') {
+          body.append(el('p', 'muted', 'Bizum al instante a tus colegas, por el móvil.'));
+          const picks = el('div', 'bz-contacts');
+          for (const c of BIZUM_CONTACTS) {
+            const b = el('button', 'bz-contact' + (bzTo === c.name ? ' on' : ''));
+            b.innerHTML = `<span class="bz-av">${c.emoji}</span>${c.name}`;
+            b.onclick = () => { bzTo = c.name; phone.refresh(); };
+            picks.append(b);
+          }
+          body.append(picks);
+          const amount = el('input', 'field') as HTMLInputElement;
+          amount.type = 'number';
+          amount.placeholder = 'Importe €';
+          const quick = el('div', 'bz-quick');
+          for (const q of [5, 10, 20, 50]) quick.append(button('€' + q, () => { amount.value = String(q); }, 'btn small'));
+          const concept = el('input', 'field') as HTMLInputElement;
+          concept.placeholder = 'Concepto (opcional)';
+          body.append(amount, quick, concept, button('Enviar Bizum', () => {
+            const n = Math.floor(Number(amount.value));
+            if (!bzTo) return hud.toast('Elige a quién se lo mandas', 'bad');
+            if (!(n > 0)) return hud.toast('Pon el importe', 'bad');
+            if (!state.transfer(n, `${bzTo} (Bizum)`, concept.value.trim())) return hud.toast('Saldo insuficiente', 'bad');
+            hud.toast(`📲 Bizum de ${euros(n)} a ${bzTo}`, 'ok');
+            state.chatSay(bzTo, `¡gracias por el bizum de ${euros(n)}! 🙌`);
+            tab = 'inicio';
+            phone.refresh();
+          }));
+        } else {
+          body.append(el('p', 'muted', 'Transferencia a la cuenta de un colega al instante.'));
+          const to = el('input', 'field') as HTMLInputElement;
+          to.placeholder = 'IBAN de destino (ES…)';
+          const amount = el('input', 'field') as HTMLInputElement;
+          amount.type = 'number';
+          amount.placeholder = 'Importe €';
+          const concept = el('input', 'field') as HTMLInputElement;
+          concept.placeholder = 'Concepto';
+          body.append(to, amount, concept, button('Enviar', () => {
+            const n = Number(amount.value);
+            if (!to.value.trim() || !(n > 0)) return hud.toast('Pon el IBAN y el importe', 'bad');
+            if (!state.transfer(n, to.value.trim(), concept.value.trim())) return hud.toast('Saldo insuficiente', 'bad');
+            hud.toast(`↗️ ${euros(n)} enviados`, 'ok');
+            tab = 'inicio';
+            phone.refresh();
+          }));
+          body.append(el('div', 'bk-mov'));
+          (body.lastChild as HTMLElement).innerHTML = `<span class="bk-ic">🔗</span><span class="bk-c"><b>Tu IBAN</b><small>${d.account}</small></span>`;
+        }
       } else if (tab === 'prestamos') {
         if (!d.loans.length) body.append(el('p', 'muted', 'No tienes préstamos.'));
         for (const l of d.loans) {

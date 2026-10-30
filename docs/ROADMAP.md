@@ -66,7 +66,8 @@
       **escaneas en el lector** del cajero y recibes la cripto; también vende
       cripto por efectivo. `bitbasePanel` en `src/game/bank.ts`. (La mesa OTC
       del cambista de la Planta Gris sigue, es lavado del lado oscuro.)
-- [ ] App del móvil: **Bizum** y **transferencias** a otros amigos (IBAN).
+- [x] App del móvil (banco → Enviar): **Bizum** a colegas (contactos +
+      importes rápidos) y **transferencias** por IBAN. En `bankApp` (apps.ts).
 
 ### Supermercado (grande grande)
 - [ ] Hacerlo mucho más grande (es clave: los dropshippers venden productos

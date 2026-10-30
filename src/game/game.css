@@ -134,6 +134,13 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0f0d16; col
 .seg button { flex: 1; border: 0; background: none; padding: 6px; border-radius: 8px; font: 600 12px Inter, sans-serif; color: inherit; cursor: pointer; }
 .seg button.on { background: #fff; color: #111; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
 .bk-mov { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 8px; background: #fff; color: #111; border: 0; border-radius: 14px; padding: 8px 10px; font: 600 12px Inter, sans-serif; text-align: left; width: 100%; }
+.bz-contacts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 4px 0; }
+.bz-contact { display: flex; flex-direction: column; align-items: center; gap: 4px; border: 0; border-radius: 12px; padding: 8px 2px; background: rgba(120,120,128,.14); color: inherit; font: 700 11px Inter, sans-serif; cursor: pointer; }
+.bz-contact.on { background: #1464c8; color: #fff; box-shadow: 0 2px 8px rgba(20,100,200,.4); }
+.bz-av { font-size: 24px; width: 42px; height: 42px; border-radius: 50%; background: rgba(255,255,255,.5); display: grid; place-items: center; }
+.bz-contact.on .bz-av { background: rgba(255,255,255,.25); }
+.bz-quick { display: flex; gap: 6px; margin: 4px 0; }
+.bz-quick .btn { flex: 1; }
 .bk-ic { width: 32px; height: 32px; border-radius: 10px; background: #eef2f8; display: grid; place-items: center; font-size: 16px; }
 .bk-c { display: flex; flex-direction: column; min-width: 0; } .bk-c small { color: #888; font-weight: 500; } .bk-c b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bk-c i { font-style: normal; }
