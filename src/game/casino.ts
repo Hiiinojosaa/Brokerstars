@@ -85,12 +85,48 @@ export function roulettePanel(game: Game) {
   const bets: RouletteBet[] = [];
   const history: number[] = [];
   let spinning = false;
-  hud.openPanel('Ruleta europea', (body) => {
+  hud.openPanel('Ruleta Lightning', (body) => {
     const bar = chipBar(game);
     const sel = betSelector();
     const wheel = el('canvas', 'wheel') as HTMLCanvasElement;
     wheel.width = wheel.height = 240;
     const result = el('div', 'muted', 'Pon fichas en el tapete y gira');
+    // --- Lightning: cada ronda 1-5 números reciben un multiplicador ---
+    const MULTS = [50, 100, 150, 200, 250, 300, 400, 500];
+    let lightning: Record<number, number> = {};
+    const strip = el('div', 'light-strip');
+    const genLightning = () => {
+      lightning = {};
+      const count = 1 + Math.floor(Math.random() * 5);
+      while (Object.keys(lightning).length < count) {
+        const n = Math.floor(Math.random() * 37);
+        lightning[n] = MULTS[Math.floor(Math.random() * MULTS.length)];
+      }
+      strip.innerHTML = '<span class="ls-tag">⚡ LIGHTNING</span>';
+      for (const [n, m] of Object.entries(lightning)) {
+        const c = el('span', 'ls-num');
+        c.innerHTML = `<b>${n}</b><small>×${m}</small>`;
+        strip.append(c);
+      }
+      // marca los números con rayo en el tapete
+      board.querySelectorAll('.rcell').forEach((b) => {
+        const num = Number((b as HTMLElement).dataset.n);
+        (b as HTMLElement).classList.toggle('lit', lightning[num] !== undefined);
+      });
+    };
+    // lluvia de multiplicadores al ganar con rayo
+    const rain = (mult: number) => {
+      const r = el('div', 'mult-rain');
+      for (let i = 0; i < 24; i++) {
+        const d = el('span', 'mr', `×${mult}`);
+        d.style.left = Math.random() * 100 + '%';
+        d.style.animationDelay = (Math.random() * 0.6) + 's';
+        d.style.fontSize = (14 + Math.random() * 22) + 'px';
+        r.append(d);
+      }
+      body.append(r);
+      setTimeout(() => r.remove(), 2200);
+    };
     const board = el('div', 'roulette');
     // montón de fichas sobre una casilla
     const chipStack = (amount: number) => {
@@ -112,6 +148,7 @@ export function roulettePanel(game: Game) {
     };
     const cell = (text: string, cls: string, numbers: number[], payout: number) => {
       const b = el('button', 'rcell ' + cls, text);
+      if (numbers.length === 1) b.dataset.n = String(numbers[0]);
       b.onclick = () => place(text, numbers, payout, b);
       return b;
     };
@@ -204,10 +241,20 @@ export function roulettePanel(game: Game) {
           const slotCenter = finalWheel + (targetIndex + 0.5) * seg;
           drawWheel(finalWheel, slotCenter, 62);
           let won = 0;
-          for (const b of bets) if (b.numbers.includes(n)) won += b.amount * (b.payout + 1);
+          let litHit = 0;
+          for (const b of bets) {
+            if (!b.numbers.includes(n)) continue;
+            // pleno a un número con rayo: paga el multiplicador en vez de 35:1
+            if (b.numbers.length === 1 && lightning[n] !== undefined) {
+              won += b.amount * lightning[n];
+              litHit = lightning[n];
+            } else won += b.amount * (b.payout + 1);
+          }
           if (won) win(game, won);
+          if (litHit) { rain(litHit); game.state.addNews('casino', '⚡', `¡Lightning! El ${n} con ×${litHit} en la ruleta: ${chips(won)}.`); }
           history.unshift(n);
-          result.innerHTML = `Ha salido <b class="rn ${n === 0 ? 'g' : RED.has(n) ? 'r' : 'b'}">${n}</b> ${won ? `· ¡GANAS ${chips(won)}! 🎉` : '· gana la banca'} <span class="muted">· ${history.slice(0, 10).join(' ')}</span>`;
+          result.innerHTML = `Ha salido <b class="rn ${n === 0 ? 'g' : RED.has(n) ? 'r' : 'b'}">${n}</b>${litHit ? ` ⚡×${litHit}` : ''} ${won ? `· ¡GANAS ${chips(won)}! 🎉` : '· gana la banca'} <span class="muted">· ${history.slice(0, 10).join(' ')}</span>`;
+          genLightning();
           bets.length = 0;
           board.querySelectorAll('.chip-stack').forEach((e) => e.remove());
           outside.querySelectorAll('.chip-stack').forEach((e) => e.remove());
@@ -229,7 +276,8 @@ export function roulettePanel(game: Game) {
       bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
     }, 'btn ghost'));
     top.append(wheel, right);
-    body.append(bar, top, el('div', 'muted', 'Elige el valor de la ficha y toca el tapete:'), sel.row, board, outside, result);
+    body.append(bar, strip, top, el('div', 'muted', 'Elige el valor de la ficha y toca el tapete:'), sel.row, board, outside, result);
+    genLightning();
   });
 }
 

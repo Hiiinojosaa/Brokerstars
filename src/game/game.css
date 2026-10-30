@@ -298,3 +298,15 @@ select.field { width: auto; }
 .chat-msg.me .chat-bubble { background: linear-gradient(135deg, #5ff777, #1fb73c); color: #06270f; }
 .chat-input { display: flex; gap: 8px; margin-top: 10px; }
 .chat-input .field { flex: 1; }
+
+/* --- Ruleta Lightning --- */
+.light-strip { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 8px; margin: 6px 0; border-radius: 10px; background: linear-gradient(135deg,#1a1150,#4b1d6e); box-shadow: inset 0 0 18px rgba(173,110,255,.35); }
+.ls-tag { font: 800 12px Inter, sans-serif; color: #ffd84a; letter-spacing: 1px; }
+.ls-num { display: flex; flex-direction: column; align-items: center; min-width: 34px; padding: 3px 6px; border-radius: 8px; background: rgba(255,216,74,.14); border: 1px solid #ffd84a; color: #fff; }
+.ls-num b { font: 800 15px Inter, sans-serif; color: #ffd84a; }
+.ls-num small { font-size: 9px; opacity: .85; }
+.rcell.lit { box-shadow: 0 0 0 2px #ffd84a, 0 0 10px #ffd84a; position: relative; }
+.rcell.lit::after { content: '⚡'; position: absolute; top: -6px; right: -4px; font-size: 10px; }
+.mult-rain { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 50; }
+.mult-rain .mr { position: absolute; top: -30px; font-weight: 800; color: #ffd84a; text-shadow: 0 0 8px #ad6eff, 0 2px 3px rgba(0,0,0,.6); animation: mrfall 2s linear forwards; }
+@keyframes mrfall { to { transform: translateY(120vh) rotate(25deg); opacity: 0; } }
