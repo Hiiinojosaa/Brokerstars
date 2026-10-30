@@ -257,6 +257,10 @@ select.field { width: auto; }
 .score { display: flex; justify-content: center; align-items: center; gap: 16px; font: 700 16px Inter, sans-serif; margin: 6px 0; }
 .score b { font-size: 30px; color: #fff; }
 .minute { font: 800 18px ui-monospace, monospace; color: var(--accent); }
+.fixtures { display: flex; flex-direction: column; gap: 8px; }
+.fixture { background: rgba(255,255,255,.05); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.fx-comp { font: 600 11px Inter, sans-serif; opacity: .7; }
+.fx-teams { font: 800 14px Inter, sans-serif; }
 /* --- PC del estafador --- */
 .desktop { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; background: linear-gradient(135deg, #1b2a4a, #2a1840); border-radius: 12px; padding: 20px; }
 .desk-app { background: none; border: 0; color: #fff; display: flex; flex-direction: column; align-items: center; gap: 6px; font: 600 13px Inter, sans-serif; cursor: pointer; }

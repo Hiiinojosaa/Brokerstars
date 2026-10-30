@@ -1556,7 +1556,7 @@ export const MATCHES: Match[] = [
     { min: 1, team: 0, who: 'Maldini' }, { min: 39, team: 0, who: 'Crespo' }, { min: 44, team: 0, who: 'Crespo' }, { min: 54, team: 1, who: 'Gerrard' }, { min: 56, team: 1, who: 'Šmicer' }, { min: 60, team: 1, who: 'Xabi Alonso' }] },
 ];
 
-const LIVE_SECONDS = 300;
+const LIVE_SECONDS = 180; // cada partido dura ~3 minutos reales
 
 // el partido que se juega ahora en las pantallas (uno cada 5 minutos)
 export class Sportsbook {
@@ -1601,8 +1601,19 @@ export class Sportsbook {
     const text = `${this.match.home} ${h}-${a} ${this.match.away}${this.match.note ? ` (${this.match.note})` : ''}`;
     if (had) game.phone.notify('⚽ Apuestas', paid ? `${text} · ¡Cobras ${chips(paid)}!` : `${text} · Apuesta perdida`);
     for (const fn of this.onEnd) fn(text);
-    this.index = (this.index + 1 + Math.floor(Math.random() * (MATCHES.length - 1))) % MATCHES.length;
+    // los partidos se juegan en orden (así se conoce el calendario del día)
+    this.index = (this.index + 1) % MATCHES.length;
     this.elapsed = 0;
+  }
+
+  // índices de los próximos n partidos (en orden de calendario)
+  nextIndices(n: number): number[] {
+    return Array.from({ length: n }, (_, i) => (this.index + 1 + i) % MATCHES.length);
+  }
+
+  // segundos reales hasta el saque del k-ésimo próximo partido (k=1 el siguiente)
+  secsToKickoff(k: number): number {
+    return Math.max(0, LIVE_SECONDS - this.elapsed) + (k - 1) * LIVE_SECONDS;
   }
 }
 
@@ -1643,9 +1654,42 @@ export function sportsbookPanel(game: Game, book: Sportsbook = sportsbook) {
       button('Más de 2,5 goles (1.85)', () => place('+2.5', 1.85), 'btn ghost'),
       button('Menos de 2,5 goles (1.95)', () => place('-2.5', 1.95), 'btn ghost'),
     );
-    body.append(bar, live, feed, el('div', 'section', 'Apostar (cierra en el minuto 10)'), markets, sel.row, el('p', 'muted', 'Partidos reales con su resultado y goleadores de verdad, resumidos en 5 minutos. Se paga el resultado al final (prórroga incluida; los penaltis cuentan como empate).'));
-    render();
-    timer = window.setInterval(render, 500);
+    // apuestas a partidos que aún no han empezado (siempre abiertas)
+    const prePlace = (idx: number, pick: string, odds: number) => {
+      const v = sel.get();
+      if (!spend(game, v)) return;
+      book.bets.push({ pick, amount: v, odds, match: idx });
+      hud.toast(`Apuesta ${pick} a ${odd(odds)} · ${chips(v)}`, 'ok');
+      render();
+    };
+    const fixtures = el('div', 'fixtures');
+    const myBets = el('div', 'muted');
+    const fmtCountdown = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+    const renderFixtures = () => {
+      fixtures.innerHTML = '';
+      book.nextIndices(3).forEach((idx, i) => {
+        const fm = MATCHES[idx];
+        const card = el('div', 'fixture');
+        card.append(el('div', 'fx-comp', `${fm.comp} · empieza en ${fmtCountdown(book.secsToKickoff(i + 1))}`));
+        card.append(el('div', 'fx-teams', `${fm.home} vs ${fm.away}`));
+        const row = el('div', 'row');
+        row.append(
+          button(`1 (${odd(fm.odds[0])})`, () => prePlace(idx, '1', fm.odds[0]), 'btn small'),
+          button(`X (${odd(fm.odds[1])})`, () => prePlace(idx, 'X', fm.odds[1]), 'btn small'),
+          button(`2 (${odd(fm.odds[2])})`, () => prePlace(idx, '2', fm.odds[2]), 'btn small'),
+        );
+        card.append(row);
+        fixtures.append(card);
+      });
+      const mine = book.bets.filter((b) => b.match !== book.index);
+      myBets.textContent = mine.length ? `Tienes ${mine.length} apuesta(s) a partidos futuros.` : '';
+    };
+    const fullRender = () => { render(); renderFixtures(); };
+    body.append(bar, live, feed, el('div', 'section', 'Apostar al partido en juego (cierra en el min 10)'), markets, sel.row,
+      el('div', 'section', 'Próximos partidos'), fixtures, myBets,
+      el('p', 'muted', 'Partidos reales con su resultado y goleadores de verdad, en ~3 minutos cada uno, uno tras otro todo el día. Puedes apostar al que se juega o a los próximos. Se paga al final (prórroga incluida; penaltis = empate).'));
+    fullRender();
+    timer = window.setInterval(fullRender, 500);
   }, () => clearInterval(timer));
 }
 

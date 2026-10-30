@@ -96,8 +96,10 @@
       (no tengo el archivo de imagen).
 
 ### Deportivas
-- [ ] Pantalla de partidos mejorada: **partidos de fútbol reales**, que
-      **duren ~3 min** y se pueda apostar; varios a lo largo del día.
+- [x] Apuestas deportivas mejoradas: partidos reales de **~3 min** (antes 5),
+      que se juegan **en orden uno tras otro todo el día**, con lista de
+      **próximos partidos** y cuenta atrás, y **apuestas pre-partido** a los
+      que aún no han empezado (además del que está en juego).
 
 ### Lado oscuro (versión GTA, abstracto)
 - [ ] Sender con **campañas y logos**, CRM de **leads/conversiones**.
