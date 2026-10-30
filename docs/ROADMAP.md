@@ -130,3 +130,31 @@
 - En el chat nuevo: **"lee docs/ROADMAP.md y sigue con <bloque>"**.
 - Modelo barato (`/model sonnet`) para lo simple; Opus para lógica compleja.
 - Actualizar este archivo al cerrar cada bloque (marcar [x] y mover a "Hecho").
+- Verificar con `npm run build`, commitear cada bloque y pushear.
+- Desplegar la demo: `npm run build` (ya usa `base: './'`) y republicar el
+  `dist/` en el artifact → https://claude.ai/artifact/T1fPJkA7iEuS26swq45F9N
+
+---
+
+## SIGUIENTE CHAT: "lee docs/ROADMAP.md y sigue con el multijugador"
+Estado a día de hoy (todo en `main`, árbol limpio, el juego arranca sin
+errores de consola; demo artifact actualizado a la Versión 9 en el enlace de
+arriba): completado todo el backlog de casino, súper, cajeros, deportivas,
+lado oscuro, identidad y ocio. **Lo único que queda es el Multijugador.**
+
+Antes de picar código del multijugador, decidir:
+1. **Backend / infra**: elegir servidor (Node + WebSockets / Colyseus, o
+   Firebase, …) y **dónde se hostea de verdad**. OJO: el contenedor de estas
+   sesiones es efímero y sin servidor persistente, así que esto no se puede
+   “dejar corriendo” aquí; hay que desplegarlo fuera.
+2. **Alcance de la 1ª iteración**: servidor autoritativo, chat real, ver a los
+   colegas moverse, y "cada grupo su edificio" + visitar otros. El dropshipping
+   colaborativo (vender en vitrinas y que gane el vendedor cuando otro compra)
+   va después.
+3. **Estado del juego**: hoy es 100% local (`localStorage`, clave
+   `brokerstars.partida.v2`, en `src/game/state.ts`). Hay que separar lo que
+   pasa a ser autoritativo del servidor de lo que sigue siendo local.
+
+Sugerencia para el chat nuevo: que lo primero sea **proponer un plan de
+arquitectura del multijugador** (infra + qué se mueve al servidor + protocolo)
+y aprobarlo antes de tocar código.
