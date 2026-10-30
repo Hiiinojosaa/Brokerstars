@@ -296,6 +296,18 @@ select.field { width: auto; }
 .ct-coins { text-align: center; font: 800 18px Inter, sans-serif; letter-spacing: 1px; margin: 10px 0; color: var(--accent); }
 .ct-hunt { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
 
+/* --- Gemas (Mines) --- */
+.mines-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 8px 0; }
+.mine-cell { aspect-ratio: 1; border: 0; border-radius: 10px; background: rgba(255,255,255,.08); font-size: 24px; cursor: pointer; display: grid; place-items: center; transition: transform .1s; }
+.mine-cell:hover:not(:disabled) { background: rgba(255,255,255,.16); }
+.mine-cell.gem { background: radial-gradient(circle at 50% 30%, #6fe3ff, #1f7fae); transform: scale(1.04); }
+.mine-cell.bomb { background: radial-gradient(circle at 50% 30%, #ff7a5a, #b3202a); }
+.mine-cell.faint { opacity: .4; }
+/* --- Mega Wheel --- */
+.mw-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin: 8px 0; }
+.mw-cell { border: 0; border-radius: 10px; padding: 10px 2px; color: #1a1205; font: 800 15px Inter, sans-serif; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.mw-cell .ct-stake { font: 700 11px Inter, sans-serif; min-height: 13px; }
+
 /* --- Baccarat --- */
 .baccarat { display: grid; grid-template-columns: 1fr; gap: 6px; margin: 8px 0; }
 .bc-side { font: 800 13px Inter, sans-serif; color: var(--accent); letter-spacing: .5px; }

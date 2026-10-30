@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { PRESETS } from '../characters/catalog';
 import { Character } from '../characters/Character';
 import type { CharacterConfig } from '../characters/types';
-import { baccaratPanel, barPanel, blackjackPanel, cashierPanel, crazyTimePanel, megaFireSlotsPanel, megaFireTerminalPanel, pokerPanel, slotsMenu, sportsbook, sportsbookPanel } from '../game/casino';
+import { baccaratPanel, barPanel, blackjackPanel, cashierPanel, crazyTimePanel, megaFireSlotsPanel, megaFireTerminalPanel, megaWheelPanel, minesPanel, pokerPanel, slotsMenu, sportsbook, sportsbookPanel } from '../game/casino';
 import { CASINO_NAME } from '../game/config';
 import { button, el, euros } from '../game/hud';
 import { rect, type Floor, type Game, type Interactable, type Rect } from '../game/world';
@@ -505,6 +505,23 @@ export function createCasino(gameRef: () => Game): Floor {
   mfsSign.position.set(-W / 2 + 0.06, 2.7, 3.4);
   mfsSign.rotation.y = Math.PI / 2;
   g.add(mfsSign);
+
+  // arcades de Gemas y Mega Wheel (zona este-centro, suelo libre)
+  for (const [gx, gz, label, icon, run] of [
+    [4.4, -0.9, 'Gemas 💎', '💎', () => minesPanel(gameRef())],
+    [4.4, 1.3, 'Mega Wheel', '🎡', () => megaWheelPanel(gameRef())],
+  ] as const) {
+    const cab = slotMachine(gz > 0 ? 0 : 2);
+    cab.position.set(gx, 0, gz);
+    cab.rotation.y = -Math.PI / 2;
+    g.add(cab);
+    colliders.push(rect(gx, gz, 0.7, 0.7));
+    interactables.push({ label, x: gx - 0.9, z: gz, radius: 0.9, run });
+    const s = signPlane(icon === '💎' ? 'GEMAS' : 'MEGA WHEEL', icon === '💎' ? 'descubre y retírate' : 'rueda del dinero', 1.1, 0.36);
+    s.position.set(gx, 1.95, gz);
+    s.rotation.y = -Math.PI / 2;
+    g.add(s);
+  }
 
   // apuestas deportivas: pantallas gigantes en la pared norte, lado este
   const screen = canvasTex(1024, 512, () => undefined);

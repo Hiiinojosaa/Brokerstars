@@ -1,4 +1,4 @@
-import { baccaratPanel, blackjackPanel, cashierPanel, crazyTimePanel, megaFireSlotsPanel, megaFireTerminalPanel, pokerPanel, slotsMenu, sportsbookPanel } from './casino';
+import { baccaratPanel, blackjackPanel, cashierPanel, crazyTimePanel, megaFireSlotsPanel, megaFireTerminalPanel, megaWheelPanel, minesPanel, pokerPanel, slotsMenu, sportsbookPanel } from './casino';
 import { BANK_NAME, LOAN_OFFERS } from './config';
 import { button, el, euros } from './hud';
 import type { Market } from './market';
@@ -306,6 +306,8 @@ export function casinoApp(game: Game): PhoneApp {
     { icon: '🔥', name: 'Slots MegaFire', sub: 'Orbes, colector y bonus', run: () => megaFireSlotsPanel(game) },
     { icon: '🎰', name: 'Tragaperras', sub: '3 máquinas propias', run: () => slotsMenu(game) },
     { icon: '♠️', name: 'Póker', sub: 'contra la casa', run: () => pokerPanel(game) },
+    { icon: '💎', name: 'Gemas', sub: 'descubre y retírate', run: () => minesPanel(game) },
+    { icon: '🎡', name: 'Mega Wheel', sub: 'rueda con top slot', run: () => megaWheelPanel(game) },
     { icon: '⚽', name: 'Apuestas', sub: 'partidos en directo', run: () => sportsbookPanel(game) },
   ];
   return {

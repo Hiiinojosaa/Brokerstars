@@ -1376,6 +1376,192 @@ export function megaFireSlotsPanel(game: Game) {
   }, () => { closed = true; timers.forEach((t) => clearTimeout(t)); timers.clear(); });
 }
 
+// --- Gemas (Mines): descubre gemas y evita las bombas; retírate cuando quieras
+export function minesPanel(game: Game) {
+  const { hud } = game;
+  const T = 25;
+  hud.openPanel('Gemas 💎', (body) => {
+    const bar = chipBar(game);
+    const sel = betSelector([5, 25, 100, 500, 1000]);
+    let bombsN = 5;
+    let active = false, mult = 1, bet = 0, picks = 0;
+    const bombs = new Set<number>();
+    const grid = el('div', 'mines-grid');
+    const cells: HTMLButtonElement[] = [];
+    const msg = el('div', 'muted', 'Elige apuesta y número de bombas. Cada gema sube el premio; retírate antes de pillar una bomba.');
+    const cashBtn = button('Retirar', () => cashOut(), 'btn');
+    const bombSel = el('div', 'row');
+
+    const fairMultAfter = (k: number) => {
+      let m = 1;
+      for (let i = 0; i < k; i++) m *= (T - i) / (T - bombsN - i);
+      return Math.round(m * 0.97 * 100) / 100; // 3 % de ventaja de la casa
+    };
+    const paint = () => {
+      bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
+      cashBtn.disabled = !active || picks === 0;
+      cashBtn.textContent = active && picks > 0 ? `Retirar ${chips(Math.floor(bet * mult))} (×${mult})` : 'Retirar';
+    };
+    const revealAll = () => {
+      cells.forEach((c, i) => {
+        c.disabled = true;
+        if (bombs.has(i)) { c.textContent = '💣'; c.classList.add('bomb'); }
+        else if (!c.classList.contains('gem')) c.textContent = '💎', c.classList.add('faint');
+      });
+    };
+    const cashOut = () => {
+      if (!active || picks === 0) return;
+      const wonAmt = Math.floor(bet * mult);
+      win(game, wonAmt);
+      active = false;
+      revealAll();
+      msg.innerHTML = `✅ Te retiras con <b>${chips(wonAmt)}</b> (×${mult})`;
+      paint();
+    };
+    const pick = (i: number) => {
+      if (!active) return;
+      const c = cells[i];
+      if (bombs.has(i)) {
+        active = false;
+        c.textContent = '💥'; c.classList.add('bomb');
+        revealAll();
+        msg.innerHTML = '💣 ¡BOOM! Pierdes la apuesta. Otra vez.';
+        paint();
+        return;
+      }
+      c.textContent = '💎'; c.classList.add('gem'); c.disabled = true;
+      picks++;
+      mult = fairMultAfter(picks);
+      if (picks === T - bombsN) { // todas las gemas
+        win(game, Math.floor(bet * mult));
+        active = false;
+        revealAll();
+        msg.innerHTML = `🏆 ¡Todas las gemas! +${chips(Math.floor(bet * mult))}`;
+      } else {
+        msg.innerHTML = `💎 Gema ${picks} · premio actual ${chips(Math.floor(bet * mult))} (×${mult})`;
+      }
+      paint();
+    };
+    const newGame = () => {
+      bet = sel.get();
+      if (!spend(game, bet)) return;
+      bombs.clear();
+      while (bombs.size < bombsN) bombs.add(Math.floor(Math.random() * T));
+      active = true; mult = 1; picks = 0;
+      cells.forEach((c) => { c.textContent = ''; c.className = 'mine-cell'; c.disabled = false; });
+      msg.textContent = `En juego · ${bombsN} bombas. Descubre gemas.`;
+      paint();
+    };
+    const startBtn = button('🎮 Jugar', newGame);
+
+    for (let i = 0; i < T; i++) {
+      const c = el('button', 'mine-cell') as HTMLButtonElement;
+      c.onclick = () => pick(i);
+      cells.push(c); grid.append(c);
+    }
+    const renderBombSel = () => {
+      bombSel.innerHTML = '';
+      for (const n of [3, 5, 10]) bombSel.append(button(`${n} bombas`, () => { if (!active) { bombsN = n; renderBombSel(); } }, 'btn small' + (bombsN === n ? ' on' : '')));
+    };
+    renderBombSel();
+    body.append(bar, el('div', 'muted', 'Valor de la ficha:'), sel.row, bombSel, grid, msg, el('div', 'row', ''));
+    (body.lastChild as HTMLElement).append(startBtn, cashBtn);
+    paint();
+  });
+}
+
+// --- Mega Wheel: rueda del dinero con multiplicador en el top slot ---
+const MW_SEGMENTS = [1, 2, 1, 5, 1, 2, 1, 10, 2, 1, 5, 2, 1, 20, 1, 2, 5, 1, 40, 2];
+const MW_VALUES = [1, 2, 5, 10, 20, 40];
+const MW_COLORS: Record<number, string> = { 1: '#2d9cdb', 2: '#6fcf97', 5: '#f2c94c', 10: '#f2994a', 20: '#eb5757', 40: '#9b51e0' };
+export function megaWheelPanel(game: Game) {
+  const { hud } = game;
+  const bets: Record<number, number> = {};
+  let spinning = false;
+  const history: number[] = [];
+  hud.openPanel('Mega Wheel', (body) => {
+    const bar = chipBar(game);
+    const sel = betSelector([1, 5, 25, 100, 500]);
+    const canvas = el('canvas', 'ct-wheel') as HTMLCanvasElement;
+    canvas.width = canvas.height = 260;
+    const topslot = el('div', 'ct-topslot');
+    const result = el('div', 'muted', 'Apuesta a un número y gira. El top slot multiplica un número al azar.');
+    const grid = el('div', 'mw-grid');
+    const cells: Record<number, HTMLElement> = {};
+    for (const v of MW_VALUES) {
+      const c = el('button', 'mw-cell');
+      c.style.background = MW_COLORS[v];
+      c.innerHTML = `<b>×${v}</b><span class="ct-stake"></span>`;
+      c.onclick = () => {
+        if (spinning) return;
+        const val = sel.get();
+        if (!spend(game, val)) return;
+        bets[v] = (bets[v] ?? 0) + val;
+        c.querySelector('.ct-stake')!.textContent = `🪙 ${bets[v]}`;
+        bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
+      };
+      cells[v] = c; grid.append(c);
+    }
+    const seg = (Math.PI * 2) / MW_SEGMENTS.length;
+    const draw = (angle: number) => {
+      const ctx = canvas.getContext('2d')!;
+      const R = 125, c = 130;
+      ctx.clearRect(0, 0, 260, 260);
+      ctx.beginPath(); ctx.arc(c, c, R + 3, 0, Math.PI * 2); ctx.fillStyle = '#2a1a06'; ctx.fill();
+      MW_SEGMENTS.forEach((v, i) => {
+        ctx.beginPath(); ctx.moveTo(c, c);
+        ctx.arc(c, c, R, angle + i * seg, angle + (i + 1) * seg);
+        ctx.fillStyle = MW_COLORS[v]; ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.stroke();
+        ctx.save(); ctx.translate(c, c); ctx.rotate(angle + (i + 0.5) * seg + Math.PI / 2);
+        ctx.fillStyle = '#1a1205'; ctx.font = '800 13px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('×' + v, 0, -R + 16); ctx.restore();
+      });
+      ctx.beginPath(); ctx.arc(c, c, 32, 0, Math.PI * 2);
+      const gr = ctx.createRadialGradient(c - 10, c - 10, 5, c, c, 32); gr.addColorStop(0, '#f6d365'); gr.addColorStop(1, '#8a5a12');
+      ctx.fillStyle = gr; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(c, 6); ctx.lineTo(c - 11, 26); ctx.lineTo(c + 11, 26); ctx.closePath();
+      ctx.fillStyle = '#fff'; ctx.strokeStyle = '#111'; ctx.lineWidth = 2; ctx.fill(); ctx.stroke();
+    };
+    let angle = 0; draw(angle);
+    let topVal = MW_VALUES[Math.floor(Math.random() * MW_VALUES.length)];
+    let topMult = [2, 3, 5, 10][Math.floor(Math.random() * 4)];
+    const paintTop = () => { topslot.innerHTML = `TOP SLOT · <b>×${topVal}</b> gana <b>×${topMult}</b>`; };
+    paintTop();
+    const spinBtn = button('🎡 ¡Girar!', () => {
+      if (spinning) return;
+      if (!Object.keys(bets).length) return hud.toast('Pon fichas en algún número', 'bad');
+      spinning = true; spinBtn.disabled = true;
+      const idx = Math.floor(Math.random() * MW_SEGMENTS.length);
+      const winner = MW_SEGMENTS[idx];
+      const target = -Math.PI / 2 - (idx + 0.5) * seg;
+      const turns = 5 + Math.random() * 2;
+      const start = angle, end = target - Math.PI * 2 * turns;
+      const T0 = performance.now(), dur = 4000;
+      const anim = (now: number) => {
+        const p = Math.min(1, (now - T0) / dur);
+        angle = start + (end - start) * (1 - Math.pow(1 - p, 3));
+        draw(angle);
+        if (p < 1) return requestAnimationFrame(anim);
+        history.unshift(winner);
+        const stake = bets[winner] ?? 0;
+        const boost = topVal === winner ? topMult : 1;
+        const won = stake * winner * boost;
+        if (won) win(game, won);
+        result.innerHTML = `Sale <b>×${winner}</b>${boost > 1 ? ` (TOP ×${topMult})` : ''} · ${won ? `¡GANAS ${chips(won)}! 🎉` : 'nada'} <span class="muted">· ${history.slice(0, 12).map((h) => '×' + h).join(' ')}</span>`;
+        for (const v of MW_VALUES) { delete bets[v]; cells[v].querySelector('.ct-stake')!.textContent = ''; }
+        bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
+        spinning = false; spinBtn.disabled = false;
+        topVal = MW_VALUES[Math.floor(Math.random() * MW_VALUES.length)];
+        topMult = [2, 3, 5, 10][Math.floor(Math.random() * 4)];
+        paintTop();
+      };
+      requestAnimationFrame(anim);
+    });
+    body.append(bar, topslot, canvas, el('div', 'muted', 'Valor de la ficha:'), sel.row, grid, spinBtn, result);
+  });
+}
+
 // --- póker Texas Hold'em contra dos jugadores del casino ---
 function handRank(cards: Card[]): number[] {
   // mejor mano de 5 entre 7 cartas: devuelve [categoría, desempates…]

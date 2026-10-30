@@ -55,7 +55,10 @@
       cabina 3D `megaFireSlotsCabinet()`, en el móvil y en el menú de slots.
 - [x] Sentarse físicamente en las mesas: ruleta MegaFire (ya), blackjack,
       póker y baccarat. Taburete por mesa; al cerrar la ventana te levantas.
-- [ ] Más juegos (gemas/diamantes, Mega Wheel…).
+- [x] Más juegos: **Gemas (Mines)** (descubre gemas, evita bombas, 3/5/10
+      bombas, retírate cuando quieras) y **Mega Wheel** (rueda del dinero con
+      top slot). `minesPanel`/`megaWheelPanel`; arcades 3D en la Planta 3 y en
+      el móvil.
 
 ### Cajeros interactivos (Las Vegas / banco real)
 - [x] **Cajero BBVA SL**: pantalla "inserte su tarjeta" → insertar tarjeta →
