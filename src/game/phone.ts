@@ -92,6 +92,7 @@ export class Phone {
   private render() {
     this.screen.innerHTML = '';
     this.screen.className = 'phone-screen';
+    this.root.dataset.app = this.current?.id ?? 'home';
     if (!this.current) {
       this.screen.classList.add('home');
       // widgets: reloj grande y objetivo

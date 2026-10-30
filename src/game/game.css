@@ -310,3 +310,9 @@ select.field { width: auto; }
 .mult-rain { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 50; }
 .mult-rain .mr { position: absolute; top: -30px; font-weight: 800; color: #ffd84a; text-shadow: 0 0 8px #ad6eff, 0 2px 3px rgba(0,0,0,.6); animation: mrfall 2s linear forwards; }
 @keyframes mrfall { to { transform: translateY(120vh) rotate(25deg); opacity: 0; } }
+
+/* --- Casino online: móvil centrado y agrandado --- */
+.phone[data-app="casino"].open { right: auto; bottom: auto; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(1.04); box-shadow: 0 0 60px rgba(246,211,101,.45), 0 30px 80px rgba(0,0,0,.6); }
+.casino-cash { font: 800 12px Inter, sans-serif; color: var(--accent); margin: 10px 0 4px; letter-spacing: .3px; }
+.casino-head div { text-align: left; }
+.casino-head div + div { text-align: right; }

@@ -263,13 +263,39 @@ export function casinoApp(game: Game): PhoneApp {
     { icon: '⚽', name: 'Apuestas', sub: 'partidos en directo', run: () => sportsbookPanel(game) },
   ];
   return {
-    id: 'casino', name: 'Casino', icon: '🎰', color: 'linear-gradient(135deg,#f6d365,#b3202a)',
+    id: 'casino', name: 'Royale Online', icon: '🎰', color: 'linear-gradient(135deg,#f6d365,#b3202a)',
     render: (body) => {
-      const chips = game.state.data.chips;
+      const s = game.state;
       const head = el('div', 'casino-head');
-      head.innerHTML = `<div><small>Fichas</small><b>🪙 ${chips.toLocaleString('es-ES')}</b></div>`;
-      head.append(button('Caja', () => { game.phone.toggle(false); cashierPanel(game); }, 'btn ghost small'));
+      head.innerHTML = `<div><small>Saldo de fichas</small><b>🪙 ${s.data.chips.toLocaleString('es-ES')}</b></div><div><small>Banco</small><b>${euros(s.data.bank)}</b></div>`;
       body.append(head);
+      // --- caja online: depositar / retirar ---
+      const amount = el('input', 'field') as HTMLInputElement;
+      amount.type = 'number'; amount.value = '100'; amount.min = '1';
+      const val = () => Math.floor(Number(amount.value));
+      const depRow = el('div', 'row');
+      depRow.append(
+        button('⬇️ Depositar (banco)', () => {
+          const n = val();
+          if (!(n > 0) || !s.hasCard || !s.payCard(n, 'Depósito Casino Royale')) return game.hud.toast('No se pudo depositar (¿tarjeta y saldo?)', 'bad');
+          s.data.chips += n; s.persist(); game.hud.toast(`Depositados ${n} 🪙`, 'ok'); game.phone.refresh();
+        }, 'btn small'),
+        button('⬇️ Efectivo', () => {
+          const n = val();
+          if (!(n > 0) || !s.payCash(n)) return game.hud.toast('No llevas tanto efectivo', 'bad');
+          s.data.chips += n; s.persist(); game.hud.toast(`Depositados ${n} 🪙`, 'ok'); game.phone.refresh();
+        }, 'btn ghost small'),
+      );
+      const wRow = el('div', 'row');
+      wRow.append(button('⬆️ Retirar al banco', () => {
+        const n = val();
+        if (!(n > 0) || s.data.chips < n) return game.hud.toast('No tienes tantas fichas', 'bad');
+        s.data.chips -= n; s.income(n, 'Retirada de fichas · Casino Royale'); game.hud.toast(`Retirados ${euros(n)} al banco`, 'ok'); game.phone.refresh();
+      }, 'btn ghost small'));
+      body.append(el('div', 'casino-cash'), amount, depRow, wRow);
+      (body.querySelector('.casino-cash') as HTMLElement).textContent = 'Caja online · 1 ficha = 1 €';
+      // --- juegos ---
+      body.append(el('div', 'section', 'Juegos'));
       const grid = el('div', 'casino-apps');
       for (const gm of GAMES) {
         const b = el('button', 'casino-tile');
@@ -277,7 +303,7 @@ export function casinoApp(game: Game): PhoneApp {
         b.onclick = () => { game.phone.toggle(false); gm.run(); };
         grid.append(b);
       }
-      body.append(grid, el('p', 'muted', 'Juega desde aquí o en vivo en la Planta 3. Todo con fichas del casino.'));
+      body.append(grid, el('p', 'muted', 'Casino online: juega desde el móvil en cualquier planta. El casino físico de la Planta 3 es aparte.'));
     },
   };
 }
