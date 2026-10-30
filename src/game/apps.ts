@@ -477,6 +477,18 @@ export function settingsApp(game: Game): PhoneApp {
         grid.append(b);
       }
       body.append(grid);
+      body.append(el('div', 'section', 'Modo prueba'));
+      body.append(button('💰 Darme 1.000.000 de todo (para probar)', () => {
+        const d = game.state.data;
+        d.cash += 1_000_000;
+        d.chips += 1_000_000;
+        d.crypto += 100_000;
+        if (d.hasAccount) d.bank += 1_000_000;
+        game.state.persist();
+        game.hud.toast('💰 ¡A probarlo todo! Efectivo, fichas y cripto al máximo', 'ok');
+        phone.refresh();
+      }, 'btn'));
+      body.append(el('p', 'muted', 'Para el banco/Bizum necesitas abrir cuenta en la ventanilla de la Planta 0 (gratis); el resto ya puedes gastarlo.'));
       body.append(el('div', 'section', 'Sistema'));
       const reset = button('Empezar partida nueva', () => {
         reset.textContent = 'Pulsa otra vez para confirmar';
