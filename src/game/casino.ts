@@ -84,24 +84,35 @@ export function roulettePanel(game: Game) {
   const { hud } = game;
   const bets: RouletteBet[] = [];
   const history: number[] = [];
+  let spinning = false;
   hud.openPanel('Ruleta europea', (body) => {
     const bar = chipBar(game);
     const sel = betSelector();
     const wheel = el('canvas', 'wheel') as HTMLCanvasElement;
-    wheel.width = wheel.height = 220;
-    const result = el('div', 'muted', 'Haz tus apuestas');
-    const betList = el('div', 'muted');
+    wheel.width = wheel.height = 240;
+    const result = el('div', 'muted', 'Pon fichas en el tapete y gira');
     const board = el('div', 'roulette');
-    const place = (label: string, numbers: number[], payout: number) => {
+    // montón de fichas sobre una casilla
+    const chipStack = (amount: number) => {
+      const s = el('span', 'chip-stack');
+      s.textContent = amount >= 1000 ? (amount / 1000) + 'k' : String(amount);
+      s.style.background = amount >= 5000 ? '#0f8a4a' : amount >= 1000 ? '#c8a14a' : amount >= 500 ? '#7d2ae8' : amount >= 100 ? '#111' : amount >= 25 ? '#1f5fae' : '#b3202a';
+      return s;
+    };
+    const place = (label: string, numbers: number[], payout: number, cell: HTMLElement) => {
+      if (spinning) return;
       const v = sel.get();
       if (!spend(game, v)) return;
       const existing = bets.find((b) => b.label === label);
       if (existing) existing.amount += v;
       else bets.push({ label, numbers, payout, amount: v });
-      refresh();
+      cell.querySelector('.chip-stack')?.remove();
+      cell.append(chipStack(bets.find((b) => b.label === label)!.amount));
+      bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
     };
     const cell = (text: string, cls: string, numbers: number[], payout: number) => {
-      const b = button(text, () => place(text, numbers, payout), 'rcell ' + cls);
+      const b = el('button', 'rcell ' + cls, text);
+      b.onclick = () => place(text, numbers, payout, b);
       return b;
     };
     board.append(cell('0', 'green zero', [0], 35));
@@ -115,82 +126,110 @@ export function roulettePanel(game: Game) {
       }
     }
     const range = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
-    const outside = el('div', 'row');
+    const outside = el('div', 'roulette-out');
     outside.append(
       cell('1-12', 'out', range(1, 12), 2), cell('13-24', 'out', range(13, 24), 2), cell('25-36', 'out', range(25, 36), 2),
       cell('1-18', 'out', range(1, 18), 1), cell('PAR', 'out', range(1, 36).filter((n) => n % 2 === 0), 1),
       cell('ROJO', 'red out', [...RED], 1), cell('NEGRO', 'black out', range(1, 36).filter((n) => !RED.has(n)), 1),
       cell('IMPAR', 'out', range(1, 36).filter((n) => n % 2), 1), cell('19-36', 'out', range(19, 36), 1),
     );
-    const drawWheel = (angle: number, ball: number | null) => {
+    // dibuja la rueda: `wheelAngle` gira el plato, `ballAngle` la posición de la
+    // bola (en ángulo absoluto) y `ballR` su radio (va cayendo hacia dentro)
+    const drawWheel = (wheelAngle: number, ballAngle: number, ballR: number) => {
       const ctx = wheel.getContext('2d')!;
-      const r = 105, c = 110;
-      ctx.clearRect(0, 0, 220, 220);
+      const R = 116, c = 120;
+      ctx.clearRect(0, 0, 240, 240);
+      // aro exterior dorado
+      ctx.beginPath(); ctx.arc(c, c, R + 2, 0, Math.PI * 2);
+      ctx.fillStyle = '#4a3418'; ctx.fill();
       const seg = (Math.PI * 2) / WHEEL.length;
       WHEEL.forEach((n, i) => {
         ctx.beginPath();
         ctx.moveTo(c, c);
-        ctx.arc(c, c, r, angle + i * seg, angle + (i + 1) * seg);
+        ctx.arc(c, c, R, wheelAngle + i * seg, wheelAngle + (i + 1) * seg);
         ctx.fillStyle = n === 0 ? '#0f8a4a' : RED.has(n) ? '#b3202a' : '#141414';
         ctx.fill();
         ctx.save();
         ctx.translate(c, c);
-        ctx.rotate(angle + (i + 0.5) * seg);
+        ctx.rotate(wheelAngle + (i + 0.5) * seg + Math.PI / 2);
         ctx.fillStyle = '#fff';
-        ctx.font = '700 10px sans-serif';
-        ctx.fillText(String(n), r - 20, 4);
+        ctx.font = '700 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(String(n), 0, -R + 13);
         ctx.restore();
       });
+      // pista de la bola y centro
+      ctx.beginPath(); ctx.arc(c, c, R - 26, 0, Math.PI * 2);
+      ctx.strokeStyle = '#2a1c0c'; ctx.lineWidth = 3; ctx.stroke();
+      ctx.beginPath(); ctx.arc(c, c, 54, 0, Math.PI * 2);
+      const g = ctx.createRadialGradient(c - 15, c - 15, 8, c, c, 54);
+      g.addColorStop(0, '#caa24a'); g.addColorStop(1, '#6b4a22');
+      ctx.fillStyle = g; ctx.fill();
+      // bola
       ctx.beginPath();
-      ctx.arc(c, c, 45, 0, Math.PI * 2);
-      ctx.fillStyle = '#6b4a22';
-      ctx.fill();
-      if (ball !== null) {
-        const i = WHEEL.indexOf(ball);
-        const a = angle + (i + 0.5) * seg;
-        ctx.beginPath();
-        ctx.arc(c + Math.cos(a) * (r - 34), c + Math.sin(a) * (r - 34), 6, 0, Math.PI * 2);
-        ctx.fillStyle = '#fff';
-        ctx.fill();
-      }
+      ctx.arc(c + Math.cos(ballAngle) * ballR, c + Math.sin(ballAngle) * ballR, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff';
+      ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 4;
+      ctx.fill(); ctx.shadowBlur = 0;
     };
-    drawWheel(0, null);
-    const refresh = () => {
-      bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
-      betList.textContent = bets.length ? 'Apuestas: ' + bets.map((b) => `${b.label} (${b.amount})`).join(' · ') : 'Sin apuestas';
-    };
+    const seg = (Math.PI * 2) / WHEEL.length;
+    let wheelAngle = 0;
+    drawWheel(0, -Math.PI / 2, 90);
     const spinBtn = button('🎡 ¡Girar!', () => {
-      if (!bets.length) return hud.toast('Pon alguna apuesta', 'bad');
+      if (!bets.length) return hud.toast('Pon alguna ficha en el tapete', 'bad');
+      if (spinning) return;
+      spinning = true;
       spinBtn.disabled = true;
       const n = WHEEL[Math.floor(Math.random() * WHEEL.length)];
-      let angle = 0, speed = 0.5;
+      const targetIndex = WHEEL.indexOf(n);
+      // dónde queda la casilla ganadora (centro) tras el giro del plato
+      let wheelSpeed = 0.28;
+      let ballAngle = 0;
+      let ballSpeed = -0.55; // la bola gira al revés
+      let ballR = 90;
+      let t = 0;
       const anim = () => {
-        angle += speed;
-        speed *= 0.985;
-        drawWheel(angle, speed < 0.02 ? n : null);
-        if (speed > 0.008) requestAnimationFrame(anim);
-        else {
-          drawWheel(angle, n);
+        t++;
+        wheelAngle += wheelSpeed;
+        wheelSpeed *= 0.991;
+        if (ballSpeed < -0.05 || ballR > 62) {
+          ballAngle += ballSpeed;
+          ballSpeed *= 0.985;
+          if (Math.abs(ballSpeed) < 0.12) ballR = Math.max(62, ballR - 0.7); // cae hacia dentro
+          drawWheel(wheelAngle, ballAngle, ballR);
+          requestAnimationFrame(anim);
+        } else {
+          // encaja la bola en la casilla ganadora respecto al plato
+          const finalWheel = wheelAngle;
+          const slotCenter = finalWheel + (targetIndex + 0.5) * seg;
+          drawWheel(finalWheel, slotCenter, 62);
           let won = 0;
           for (const b of bets) if (b.numbers.includes(n)) won += b.amount * (b.payout + 1);
           if (won) win(game, won);
           history.unshift(n);
-          result.innerHTML = `Ha salido <b class="${n === 0 ? 'pos' : RED.has(n) ? 'neg' : ''}">${n}</b> ${won ? `· ¡Ganas ${chips(won)}! 🎉` : '· La banca gana'} <span class="muted">· últimos: ${history.slice(0, 8).join(', ')}</span>`;
+          result.innerHTML = `Ha salido <b class="rn ${n === 0 ? 'g' : RED.has(n) ? 'r' : 'b'}">${n}</b> ${won ? `· ¡GANAS ${chips(won)}! 🎉` : '· gana la banca'} <span class="muted">· ${history.slice(0, 10).join(' ')}</span>`;
           bets.length = 0;
-          refresh();
+          board.querySelectorAll('.chip-stack').forEach((e) => e.remove());
+          outside.querySelectorAll('.chip-stack').forEach((e) => e.remove());
+          bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
+          spinning = false;
           spinBtn.disabled = false;
         }
       };
       anim();
     });
-    body.append(bar, el('div', 'row roulette-top'), board, outside, sel.row, betList, result);
-    (body.children[1] as HTMLElement).append(wheel, el('div', 'col', ''));
-    ((body.children[1] as HTMLElement).lastChild as HTMLElement).append(spinBtn, button('Quitar apuestas', () => {
+    const top = el('div', 'roulette-top');
+    const right = el('div', 'col');
+    right.append(spinBtn, button('Retirar fichas', () => {
+      if (spinning) return;
       for (const b of bets) win(game, b.amount);
       bets.length = 0;
-      refresh();
+      board.querySelectorAll('.chip-stack').forEach((e) => e.remove());
+      outside.querySelectorAll('.chip-stack').forEach((e) => e.remove());
+      bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
     }, 'btn ghost'));
-    refresh();
+    top.append(wheel, right);
+    body.append(bar, top, el('div', 'muted', 'Elige el valor de la ficha y toca el tapete:'), sel.row, board, outside, result);
   });
 }
 
@@ -227,107 +266,267 @@ export function blackjackPanel(game: Game) {
   const { hud } = game;
   hud.openPanel('Blackjack', (body) => {
     const sel = betSelector();
-    let d = deck(), player: Card[] = [], dealer: Card[] = [], bet = 0, playing = false;
+    let d = deck();
+    let hands: Card[][] = [];      // puede haber 2 manos tras dividir
+    let bets: number[] = [];
+    let active = 0;                // mano que juega
+    let dealer: Card[] = [];
+    let playing = false;
+    let insurance = 0;
     const bar = chipBar(game);
-    const dealerRow = el('div', 'hand'), playerRow = el('div', 'hand');
-    const msg = el('div', 'muted', 'La banca se planta en 17. Blackjack paga 3 a 2.');
+    const dealerRow = el('div', 'hand');
+    const handsWrap = el('div', 'bj-hands');
+    const msg = el('div', 'muted', 'Blackjack paga 3:2. La banca se planta en 17. Puedes doblar, dividir y pedir seguro.');
     const actions = el('div', 'row');
+
+    const draw = () => { if (d.length < 15) d = deck(); return d.pop()!; };
     const render = (reveal = false) => {
       bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
       dealerRow.innerHTML = '';
       dealer.forEach((c, i) => dealerRow.append(cardEl(i === 1 && !reveal ? null : c)));
-      playerRow.innerHTML = '';
-      player.forEach((c) => playerRow.append(cardEl(c)));
+      dealerRow.append(el('span', 'bj-val', reveal ? String(bjValue(dealer)) : '?'));
+      handsWrap.innerHTML = '';
+      hands.forEach((h, i) => {
+        const hd = el('div', 'bj-hand' + (playing && i === active ? ' on' : ''));
+        const cards = el('div', 'hand');
+        h.forEach((c) => cards.append(cardEl(c)));
+        hd.append(cards, el('div', 'muted', `${hands.length > 1 ? `Mano ${i + 1} · ` : ''}${bjValue(h)}${bjValue(h) > 21 ? ' 💥' : ''} · ${chips(bets[i])}`));
+        handsWrap.append(hd);
+      });
       actions.innerHTML = '';
-      if (!playing) {
-        actions.append(button('Repartir', deal));
-      } else {
-        actions.append(button('Pedir', hit), button('Plantarse', stand, 'btn ghost'));
-        if (player.length === 2 && game.state.data.chips >= bet) actions.append(button('Doblar', double, 'btn ghost'));
-      }
-    };
-    const finish = (text: string, payout: number) => {
-      playing = false;
-      if (payout) win(game, payout);
-      msg.textContent = `${text} · tú ${bjValue(player)} · banca ${bjValue(dealer)}`;
-      render(true);
+      if (!playing) { actions.append(button('Repartir', deal)); return; }
+      const h = hands[active];
+      actions.append(button('Pedir', hit), button('Plantarse', stand, 'btn ghost'));
+      if (h.length === 2 && game.state.data.chips >= bets[active]) actions.append(button('Doblar', dbl, 'btn ghost'));
+      if (h.length === 2 && h[0].r === h[1].r && hands.length === 1 && game.state.data.chips >= bets[active]) actions.append(button('Dividir', split, 'btn ghost'));
+      if (dealer[0]?.r === 14 && !insurance && active === 0 && h.length === 2 && game.state.data.chips >= Math.floor(bets[0] / 2)) actions.append(button('Seguro', takeInsurance, 'btn ghost'));
     };
     const deal = () => {
-      bet = sel.get();
+      const bet = sel.get();
       if (!spend(game, bet)) return;
-      if (d.length < 15) d = deck();
-      player = [d.pop()!, d.pop()!];
-      dealer = [d.pop()!, d.pop()!];
-      playing = true;
+      hands = [[draw(), draw()]];
+      bets = [bet];
+      dealer = [draw(), draw()];
+      active = 0; insurance = 0; playing = true;
       msg.textContent = `Apuesta ${chips(bet)}`;
-      if (bjValue(player) === 21) return finish('¡BLACKJACK! 🃏', Math.floor(bet * 2.5));
+      if (bjValue(hands[0]) === 21) { playing = false; return finishAll('¡BLACKJACK! 🃏'); }
+      render();
+    };
+    const takeInsurance = () => {
+      insurance = Math.floor(bets[0] / 2);
+      if (!spend(game, insurance)) { insurance = 0; return; }
+      msg.textContent = `Seguro de ${chips(insurance)} contra blackjack de la banca`;
       render();
     };
     const hit = () => {
-      player.push(d.pop()!);
-      if (bjValue(player) > 21) return finish('Te pasas 💥', 0);
+      hands[active].push(draw());
+      if (bjValue(hands[active]) >= 21) next();
+      else render();
+    };
+    const dbl = () => {
+      if (!spend(game, bets[active])) return;
+      bets[active] *= 2;
+      hands[active].push(draw());
+      next();
+    };
+    const split = () => {
+      if (!spend(game, bets[0])) return;
+      hands = [[hands[0][0], draw()], [hands[0][1], draw()]];
+      bets = [bets[0], bets[0]];
       render();
     };
+    const next = () => {
+      if (active < hands.length - 1) { active++; render(); }
+      else stand();
+    };
     const stand = () => {
-      while (bjValue(dealer) < 17) dealer.push(d.pop()!);
-      const p = bjValue(player), q = bjValue(dealer);
-      if (q > 21 || p > q) finish('¡Ganas! 🎉', bet * 2);
-      else if (p === q) finish('Empate', bet);
-      else finish('Gana la banca', 0);
+      if (active < hands.length - 1) { active++; return render(); }
+      // juega la banca
+      while (bjValue(dealer) < 17) dealer.push(draw());
+      playing = false;
+      finishAll();
     };
-    const double = () => {
-      if (!spend(game, bet)) return;
-      bet *= 2;
-      player.push(d.pop()!);
-      if (bjValue(player) > 21) return finish('Te pasas 💥', 0);
-      stand();
+    const finishAll = (special?: string) => {
+      const dv = bjValue(dealer);
+      let totalWin = 0;
+      const results: string[] = [];
+      // seguro: paga 2:1 si la banca tiene blackjack natural
+      if (insurance) {
+        if (dealer.length === 2 && dv === 21) { totalWin += insurance * 3; results.push('seguro ✓'); }
+      }
+      hands.forEach((h, i) => {
+        const pv = bjValue(h);
+        const natural = special && h.length === 2 && pv === 21;
+        if (pv > 21) results.push(`mano ${i + 1}: te pasas`);
+        else if (natural) { totalWin += Math.floor(bets[i] * 2.5); results.push('¡blackjack!'); }
+        else if (dv > 21 || pv > dv) { totalWin += bets[i] * 2; results.push(`mano ${i + 1}: ganas`); }
+        else if (pv === dv) { totalWin += bets[i]; results.push(`mano ${i + 1}: empate`); }
+        else results.push(`mano ${i + 1}: gana banca`);
+      });
+      if (totalWin) win(game, totalWin);
+      msg.textContent = `${special ?? ''} Banca ${dv} · ${results.join(' · ')}${totalWin ? ` · +${chips(totalWin)}` : ''}`;
+      render(true);
     };
-    body.append(bar, el('div', 'section', 'Banca'), dealerRow, el('div', 'section', 'Tú'), playerRow, msg, sel.row, actions);
+    body.append(bar, el('div', 'section', 'Banca'), dealerRow, el('div', 'section', 'Tú'), handsWrap, msg, sel.row, actions);
     render();
   });
 }
 
-// --- tragaperras ---
-const SLOT = ['🍒', '🍋', '🍉', '🔔', '⭐', '💎', '7️⃣'];
-const SLOT_PAY: Record<string, number> = { '🍒': 5, '🍋': 8, '🍉': 10, '🔔': 15, '⭐': 25, '💎': 50, '7️⃣': 100 };
+// --- tragaperras: tres máquinas propias, cada una con su mecánica ---
+interface SlotGame {
+  id: string;
+  name: string;
+  theme: string;
+  cols: number;
+  rows: number;
+  symbols: { icon: string; weight: number; pay3: number }[];
+  wild?: string;
+  scatter?: string;
+  // texto de ayuda
+  rules: string;
+}
 
-export function slotsPanel(game: Game) {
+const SLOTS: SlotGame[] = [
+  {
+    id: 'frutas', name: 'Broker Fruits', theme: 'linear-gradient(135deg,#e8392a,#8a0f12)', cols: 3, rows: 1,
+    symbols: [
+      { icon: '🍒', weight: 30, pay3: 5 }, { icon: '🍋', weight: 22, pay3: 8 }, { icon: '🍉', weight: 16, pay3: 12 },
+      { icon: '🔔', weight: 12, pay3: 20 }, { icon: '⭐', weight: 9, pay3: 40 }, { icon: '💎', weight: 5, pay3: 80 }, { icon: '7️⃣', weight: 3, pay3: 150 },
+    ],
+    rules: '3 iguales pagan. Dos 🍒 ya dan premio. El 7️⃣ es el gordo (x150).',
+  },
+  {
+    id: 'oro', name: 'Golden Vegas 5x3', theme: 'linear-gradient(135deg,#f7b733,#8a5a00)', cols: 5, rows: 3,
+    symbols: [
+      { icon: '🔟', weight: 26, pay3: 3 }, { icon: '🅰️', weight: 22, pay3: 4 }, { icon: '🔔', weight: 16, pay3: 8 },
+      { icon: '💰', weight: 12, pay3: 15 }, { icon: '💎', weight: 8, pay3: 30 }, { icon: '👑', weight: 4, pay3: 60 },
+    ],
+    wild: '🃏', scatter: '🎁',
+    rules: '5 rodillos, 3 filas. Gana por líneas (3,4,5 iguales de izq. a dcha.). El 🃏 sustituye a cualquier símbolo. Tres 🎁 dan 10 giros gratis.',
+  },
+  {
+    id: 'cripto', name: 'Crypto Cascade', theme: 'linear-gradient(135deg,#16c79a,#07373a)', cols: 5, rows: 4,
+    symbols: [
+      { icon: '🟢', weight: 26, pay3: 2 }, { icon: '🔷', weight: 20, pay3: 4 }, { icon: '🟠', weight: 15, pay3: 7 },
+      { icon: 'Ξ', weight: 11, pay3: 14 }, { icon: '₿', weight: 7, pay3: 28 }, { icon: '🚀', weight: 4, pay3: 70 },
+    ],
+    rules: 'Pagan 8+ símbolos iguales por toda la rejilla; ganan, desaparecen y caen nuevos (cascada). Cadenas seguidas suben el multiplicador x1, x2, x3, x5.',
+  },
+];
+
+function pickSymbol(g: SlotGame) {
+  const total = g.symbols.reduce((s, x) => s + x.weight, 0) + (g.wild ? 6 : 0) + (g.scatter ? 4 : 0);
+  let r = Math.random() * total;
+  if (g.wild && (r -= 6) < 0) return g.wild;
+  if (g.scatter && (r -= 4) < 0) return g.scatter;
+  for (const x of g.symbols) if ((r -= x.weight) < 0) return x.icon;
+  return g.symbols[0].icon;
+}
+
+export function slotsMenu(game: Game) {
+  game.hud.openPanel('Tragaperras', (body) => {
+    body.append(el('div', 'muted', 'Elige máquina. Cada una juega distinto. Todo con fichas del casino.'));
+    for (const g of SLOTS) {
+      const card = el('button', 'slot-pick');
+      card.style.background = g.theme;
+      card.innerHTML = `<b>${g.name}</b><span>${g.symbols.slice(-3).map((s) => s.icon).join(' ')}</span><small>${g.rules}</small>`;
+      card.onclick = () => slotMachine(game, g);
+      body.append(card);
+    }
+  });
+}
+
+function slotMachine(game: Game, g: SlotGame) {
   const { hud } = game;
-  hud.openPanel('Tragaperras «Lucky Broker»', (body) => {
+  hud.openPanel(g.name, (body) => {
     const bar = chipBar(game);
     const sel = betSelector([1, 5, 10, 50, 100]);
-    const reels = el('div', 'reels');
-    const cells = [0, 1, 2].map(() => el('div', 'reel', '7️⃣'));
-    reels.append(...cells);
-    const msg = el('div', 'muted', '3 iguales: premio gordo (7️⃣ paga x100) · 2 cerezas: x2');
-    const spin = button('🎰 Tirar', () => {
-      const bet = sel.get();
-      if (!spend(game, bet)) return;
-      spin.disabled = true;
-      // los símbolos raros salen menos
-      const pick = () => {
-        const r = Math.random();
-        return SLOT[r < 0.3 ? 0 : r < 0.5 ? 1 : r < 0.66 ? 2 : r < 0.79 ? 3 : r < 0.9 ? 4 : r < 0.97 ? 5 : 6];
-      };
-      const final = [pick(), pick(), pick()];
-      let t = 0;
-      const timer = setInterval(() => {
-        t++;
-        cells.forEach((c, i) => (c.textContent = t > 8 + i * 5 ? final[i] : SLOT[Math.floor(Math.random() * SLOT.length)]));
-        if (t > 20) {
-          clearInterval(timer);
-          let prize = 0;
-          if (final[0] === final[1] && final[1] === final[2]) prize = bet * SLOT_PAY[final[0]];
-          else if (final.filter((s) => s === '🍒').length === 2) prize = bet * 2;
-          if (prize) win(game, prize);
-          msg.textContent = prize ? `¡PREMIO! +${chips(prize)} 🎉` : 'Nada… otra más 😏';
-          bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
-          spin.disabled = false;
+    const grid = el('div', 'slot-grid');
+    grid.style.gridTemplateColumns = `repeat(${g.cols}, 1fr)`;
+    grid.style.background = g.theme;
+    const cells: HTMLElement[] = [];
+    for (let i = 0; i < g.cols * g.rows; i++) {
+      const c = el('div', 'slot-cell', g.symbols[i % g.symbols.length].icon);
+      cells.push(c);
+      grid.append(c);
+    }
+    const msg = el('div', 'muted', g.rules);
+    let freeSpins = 0;
+    const payFor = (icon: string) => g.symbols.find((s) => s.icon === icon)?.pay3 ?? 0;
+
+    const settle = (board: string[], bet: number) => {
+      let prize = 0;
+      const winners = new Set<number>();
+      if (g.id === 'frutas') {
+        if (board[0] === board[1] && board[1] === board[2]) { prize = bet * payFor(board[0]); [0, 1, 2].forEach((i) => winners.add(i)); }
+        else if (board.filter((x) => x === '🍒').length >= 2) { prize = bet * 2; board.forEach((x, i) => x === '🍒' && winners.add(i)); }
+      } else if (g.id === 'oro') {
+        // 3 líneas horizontales + 2 diagonales; el wild sustituye
+        const lines = [[0, 1, 2, 3, 4], [5, 6, 7, 8, 9], [10, 11, 12, 13, 14], [0, 6, 12, 8, 4], [10, 6, 2, 8, 14]];
+        for (const line of lines) {
+          const syms = line.map((i) => board[i]);
+          const base = syms.find((x) => x !== g.wild) ?? g.wild!;
+          if (base === g.scatter) continue;
+          let run = 0;
+          for (const x of syms) { if (x === base || x === g.wild) run++; else break; }
+          if (run >= 3) { prize += bet * payFor(base) * (run === 5 ? 3 : run === 4 ? 1.5 : 1); line.slice(0, run).forEach((i) => winners.add(i)); }
         }
-      }, 70);
-      bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
+        const scatters = board.filter((x) => x === g.scatter).length;
+        if (scatters >= 3) { freeSpins += 10; board.forEach((x, i) => x === g.scatter && winners.add(i)); }
+      }
+      return { prize: Math.floor(prize), winners };
+    };
+
+    const spin = button('🎰 Tirar', async () => {
+      const bet = sel.get();
+      const free = freeSpins > 0;
+      if (free) freeSpins--;
+      else if (!spend(game, bet)) return;
+      spin.disabled = true;
+      // animación de rodillos
+      for (let t = 0; t < 14; t++) {
+        cells.forEach((c, i) => { if (t < 6 + (i % g.cols) * 2) c.textContent = pickSymbol(g); });
+        await new Promise((r) => setTimeout(r, 55));
+      }
+      if (g.id === 'cripto') {
+        // cascada: rellenar, pagar grupos de 8+, repetir
+        let board = cells.map(() => pickSymbol(g));
+        let totalPrize = 0, mult = 1;
+        let chain = true;
+        while (chain) {
+          cells.forEach((c, i) => (c.textContent = board[i]));
+          await new Promise((r) => setTimeout(r, 180));
+          const counts = new Map<string, number[]>();
+          board.forEach((x, i) => counts.set(x, [...(counts.get(x) ?? []), i]));
+          let hit: number[] = [];
+          let roundPrize = 0;
+          for (const [icon, idx] of counts) if (idx.length >= 8) { roundPrize += bet * payFor(icon) * (idx.length / 8); hit.push(...idx); }
+          if (roundPrize > 0) {
+            totalPrize += Math.floor(roundPrize * mult);
+            hit.forEach((i) => cells[i].classList.add('slot-win'));
+            await new Promise((r) => setTimeout(r, 300));
+            hit.forEach((i) => cells[i].classList.remove('slot-win'));
+            board = board.map((x, i) => (hit.includes(i) ? pickSymbol(g) : x));
+            mult = mult >= 5 ? 5 : mult >= 3 ? 5 : mult >= 2 ? 3 : 2;
+          } else chain = false;
+        }
+        if (totalPrize) win(game, totalPrize);
+        msg.textContent = totalPrize ? `💥 ¡Cascada! +${chips(totalPrize)} (x${mult} máx)` : 'Sin premio. Otra vez.';
+      } else {
+        const board = cells.map(() => pickSymbol(g));
+        cells.forEach((c, i) => (c.textContent = board[i]));
+        const { prize, winners } = settle(board, bet);
+        winners.forEach((i) => cells[i].classList.add('slot-win'));
+        setTimeout(() => winners.forEach((i) => cells[i].classList.remove('slot-win')), 900);
+        if (prize) win(game, prize);
+        msg.textContent = prize ? `🎉 ¡Premio! +${chips(prize)}${freeSpins ? ` · ${freeSpins} giros gratis` : ''}` : freeSpins ? `🎁 ${freeSpins} giros gratis` : 'Sin premio. Otra vez.';
+      }
+      bar.textContent = `🪙 ${chips(game.state.data.chips)}${freeSpins ? ` · 🎁${freeSpins}` : ''}`;
+      spin.disabled = false;
     });
-    body.append(bar, reels, msg, sel.row, spin);
+    const spinFree = () => freeSpins > 0;
+    body.append(bar, grid, msg, sel.row, spin, button('‹ Otras máquinas', () => slotsMenu(game), 'btn ghost'));
+    void spinFree;
   });
 }
 

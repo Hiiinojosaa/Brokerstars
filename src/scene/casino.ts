@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { PRESETS } from '../characters/catalog';
 import { Character } from '../characters/Character';
 import type { CharacterConfig } from '../characters/types';
-import { barPanel, blackjackPanel, cashierPanel, pokerPanel, roulettePanel, slotsPanel, sportsbook, sportsbookPanel } from '../game/casino';
+import { barPanel, blackjackPanel, cashierPanel, pokerPanel, roulettePanel, slotsMenu, sportsbook, sportsbookPanel } from '../game/casino';
 import { CASINO_NAME } from '../game/config';
 import { button, el, euros } from '../game/hud';
 import { rect, type Floor, type Game, type Interactable, type Rect } from '../game/world';
@@ -63,6 +63,27 @@ const darkWood = new THREE.MeshStandardMaterial({ color: '#3a1f14', roughness: 0
 
 function croupier(x: number, z: number, rotY: number, g: THREE.Group, list: Character[], i: number) {
   const c = new Character({ ...PRESETS[0], name: 'Crupier', hat: 'ninguno', glasses: 'ninguna', top: 'traje', topColor: '#1c1c1c', sleeveColor: '#f2f2f2', tie: 'negra', face: i % 2 ? 'feliz' : 'serio', skin: ['#f1c9a5', '#8d5a3b', '#d9a77e'][i % 3], hairStyle: i % 2 ? 'rapado' : 'degradado' });
+  c.root.position.set(x, 0, z);
+  c.root.rotation.y = rotY;
+  g.add(c.root);
+  list.push(c);
+}
+
+// Jugadores del casino: variados (orígenes y estilos distintos), sentados.
+const GAMBLERS: Partial<(typeof PRESETS)[number]>[] = [
+  { skin: '#f1c9a5', hair: '#111', hairStyle: 'rapado', top: 'traje', topColor: '#1c1c1c', tie: 'granate', face: 'serio', glasses: 'oscuras', watch: 'rolex_oro', chain: 'cubana', build: 'grande' },
+  { skin: '#e8c9a0', hair: '#111', hairStyle: 'degradado', top: 'camiseta', topColor: '#7a1f1f', print: 'dolar', face: 'chulo', pants: 'pitillo', watch: 'digital' },
+  { skin: '#8d5a3b', hair: '#111', hairStyle: 'trenzas', top: 'sudadera', topColor: '#1d2440', face: 'feliz', chain: 'colgante', glasses: 'oscuras' },
+  { skin: '#d9a77e', hair: '#3b2414', hairStyle: 'rizos', top: 'manga_larga', topColor: '#5a3d6e', face: 'normal', facialHair: 'barba' },
+  { skin: '#f1c9a5', hair: '#1a1a1a', hairStyle: 'rapado', top: 'traje', topColor: '#3d4045', tie: 'azul', face: 'concentrado', glasses: 'pasta' },
+  { skin: '#5e3a26', hair: '#111', hairStyle: 'degradado', top: 'camiseta', topColor: '#f2f2f2', print: 'brokerstars', face: 'chulo', chain: 'oro' },
+  { skin: '#b97f55', hair: '#111', hairStyle: 'pinchos', top: 'sudadera', topColor: '#111', face: 'normal', watch: 'rolex_plata' },
+  { skin: '#e8c9a0', hair: '#111', hairStyle: 'rapado', top: 'camiseta_sobre_larga', topColor: '#1c1c1c', sleeveColor: '#f2f2f2', face: 'serio', facialHair: 'perilla' },
+];
+let gamblerIndex = 0;
+function gambler(x: number, z: number, rotY: number, g: THREE.Group, list: Character[]) {
+  const c = new Character({ ...PRESETS[0], name: 'Jugador', hat: 'ninguno', ...GAMBLERS[gamblerIndex++ % GAMBLERS.length] });
+  c.pose = 'sentado';
   c.root.position.set(x, 0, z);
   c.root.rotation.y = rotY;
   g.add(c.root);
@@ -270,6 +291,8 @@ export function createCasino(gameRef: () => Game): Floor {
     wheels.push(t.wheel);
     colliders.push(rect(x, z, 3.3, 1.6));
     croupier(x - 1.0, z - 1.05, 0, g, people, i);
+    gambler(x + 0.6, z + 1.25, Math.PI, g, people);
+    if (i === 0) gambler(x - 0.5, z + 1.25, Math.PI, g, people);
     interactables.push({ label: 'Ruleta', x, z: z + 1.2, radius: 1.3, run: () => roulettePanel(gameRef()) });
   });
   // blackjack
@@ -279,6 +302,8 @@ export function createCasino(gameRef: () => Game): Floor {
     g.add(t);
     colliders.push(rect(x, z + 0.3, 2.4, 1.3));
     croupier(x, z - 0.5, 0, g, people, i + 2);
+    gambler(x - 0.7, z + 0.9, Math.PI + 0.3, g, people);
+    gambler(x + 0.7, z + 0.9, Math.PI - 0.3, g, people);
     interactables.push({ label: 'Blackjack', x, z: z + 1.5, radius: 1.1, run: () => blackjackPanel(gameRef()) });
   });
   // póker
@@ -288,6 +313,9 @@ export function createCasino(gameRef: () => Game): Floor {
     g.add(t);
     colliders.push(rect(x, z, 3.4, 2.3));
     croupier(x, z - 1.35, 0, g, people, i + 4);
+    gambler(x - 1.1, z + 0.4, Math.PI + 0.5, g, people);
+    gambler(x + 1.1, z + 0.4, Math.PI - 0.5, g, people);
+    gambler(x, z + 1.5, Math.PI, g, people);
     interactables.push({ label: 'Mesa de póker', x, z: z + 1.6, radius: 1.2, run: () => pokerPanel(gameRef()) });
   });
   // fila de tragaperras en la pared oeste
@@ -299,7 +327,7 @@ export function createCasino(gameRef: () => Game): Floor {
     g.add(s);
   }
   colliders.push(rect(-W / 2 + 0.4, -3.1, 0.8, 8));
-  for (let i = 0; i < 8; i += 2) interactables.push({ label: 'Tragaperras', x: -W / 2 + 1.6, z: -6.1 + i * 1.0, radius: 0.9, run: () => slotsPanel(gameRef()) });
+  for (let i = 0; i < 8; i += 2) interactables.push({ label: 'Tragaperras', x: -W / 2 + 1.6, z: -6.1 + i * 1.0, radius: 0.9, run: () => slotsMenu(gameRef()) });
 
   // apuestas deportivas: pantallas gigantes en la pared norte, lado este
   const screen = canvasTex(1024, 512, () => undefined);

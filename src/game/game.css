@@ -236,3 +236,20 @@ select.field { width: auto; }
 .desktop { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; background: linear-gradient(135deg, #1b2a4a, #2a1840); border-radius: 12px; padding: 20px; }
 .desk-app { background: none; border: 0; color: #fff; display: flex; flex-direction: column; align-items: center; gap: 6px; font: 600 13px Inter, sans-serif; cursor: pointer; }
 .desk-app .phone-icon { background: rgba(255,255,255,.12); }
+
+/* --- casino v2 --- */
+.chip-stack { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); min-width: 22px; height: 22px; border-radius: 50%; border: 2px dashed rgba(255,255,255,.8); color: #fff; font: 800 10px Inter, sans-serif; display: grid; place-items: center; z-index: 2; box-shadow: 0 2px 4px rgba(0,0,0,.4); }
+.rcell { position: relative; }
+.roulette-out { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; margin-top: 3px; }
+.roulette-out .rcell { padding: 8px 4px; }
+.rn { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; color: #fff; }
+.rn.r { background: #b3202a; } .rn.b { background: #141414; } .rn.g { background: #0f8a4a; }
+.slot-pick { display: flex; flex-direction: column; gap: 4px; text-align: left; border: 0; border-radius: 14px; padding: 14px; color: #fff; cursor: pointer; }
+.slot-pick b { font: 800 16px Inter, sans-serif; } .slot-pick span { font-size: 24px; } .slot-pick small { opacity: .9; }
+.slot-grid { display: grid; gap: 6px; padding: 12px; border-radius: 14px; }
+.slot-cell { background: rgba(0,0,0,.5); border-radius: 8px; aspect-ratio: 1; display: grid; place-items: center; font-size: 30px; transition: transform .1s; }
+.slot-win { background: rgba(242,193,78,.85); transform: scale(1.1); box-shadow: 0 0 14px #f2c14e; }
+.bj-hands { display: flex; gap: 10px; flex-wrap: wrap; }
+.bj-hand { padding: 6px; border-radius: 10px; }
+.bj-hand.on { background: rgba(242,193,78,.18); outline: 1px solid var(--accent); }
+.bj-val { align-self: center; font: 800 16px Inter, sans-serif; color: var(--accent); margin-left: 6px; }
