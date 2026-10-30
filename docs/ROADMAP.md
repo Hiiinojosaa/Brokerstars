@@ -53,7 +53,8 @@
       cobra todos, 3+ ⭐ = tiradas gratis con multiplicador creciente, 🎁 =
       ruleta de bonus ×10…×1000. `megaFireSlotsPanel` en `src/game/casino.ts`,
       cabina 3D `megaFireSlotsCabinet()`, en el móvil y en el menú de slots.
-- [ ] Sentarse físicamente en las mesas (ruleta, blackjack, baccarat).
+- [x] Sentarse físicamente en las mesas: ruleta MegaFire (ya), blackjack,
+      póker y baccarat. Taburete por mesa; al cerrar la ventana te levantas.
 - [ ] Más juegos (gemas/diamantes, Mega Wheel…).
 
 ### Cajeros interactivos (Las Vegas / banco real)

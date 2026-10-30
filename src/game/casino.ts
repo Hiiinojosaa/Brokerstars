@@ -722,7 +722,7 @@ function bjValue(hand: Card[]) {
   return v;
 }
 
-export function blackjackPanel(game: Game) {
+export function blackjackPanel(game: Game, onClose?: () => void) {
   const { hud } = game;
   hud.openPanel('Blackjack', (body) => {
     const sel = betSelector();
@@ -829,7 +829,7 @@ export function blackjackPanel(game: Game) {
     };
     body.append(bar, el('div', 'section', 'Banca'), dealerRow, el('div', 'section', 'Tú'), handsWrap, msg, sel.row, actions);
     render();
-  });
+  }, onClose);
 }
 
 // --- Crazy Time: rueda del dinero con top slot y 4 bonus ---
@@ -1008,7 +1008,7 @@ export function crazyTimePanel(game: Game) {
 // --- Speed Baccarat (punto y banca) ---
 const bacValue = (h: Card[]) => h.reduce((s, c) => s + (c.r >= 10 ? (c.r === 14 ? 1 : 0) : c.r), 0) % 10;
 
-export function baccaratPanel(game: Game) {
+export function baccaratPanel(game: Game, onClose?: () => void) {
   const { hud } = game;
   let bet: 'jugador' | 'banca' | 'empate' | null = null;
   const history: string[] = [];
@@ -1067,7 +1067,7 @@ export function baccaratPanel(game: Game) {
     table.append(el('div', 'bc-side', 'Jugador'), pRow, el('div', 'bc-side banca', 'Banca'), bRow);
     body.append(bar, table, msg, el('div', 'muted', 'Valor de la ficha:'), sel.row, picks, deal);
     paint();
-  });
+  }, onClose);
 }
 
 // --- tragaperras: tres máquinas propias, cada una con su mecánica ---
@@ -1413,7 +1413,7 @@ function compare(a: number[], b: number[]) {
 }
 const HAND_NAMES = ['Carta alta', 'Pareja', 'Doble pareja', 'Trío', 'Escalera', 'Color', 'Full', 'Póker', 'Escalera de color'];
 
-export function pokerPanel(game: Game) {
+export function pokerPanel(game: Game, onClose?: () => void) {
   const { hud } = game;
   const BLIND = 50;
   hud.openPanel('Póker Texas Hold\'em', (body) => {
@@ -1516,7 +1516,7 @@ export function pokerPanel(game: Game) {
     };
     body.append(bar, botsRow, el('div', 'section', 'Mesa'), boardRow, el('div', 'section', 'Tus cartas'), myRow, msg, actions);
     render();
-  });
+  }, onClose);
 }
 
 // --- apuestas deportivas: partidos reales que se juegan en 5 minutos ---

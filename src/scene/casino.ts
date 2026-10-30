@@ -441,7 +441,9 @@ export function createCasino(gameRef: () => Game): Floor {
     croupier(x, z - 0.5, 0, g, people, i + 2);
     gambler(x - 0.7, z + 0.9, Math.PI + 0.3, g, people);
     gambler(x + 0.7, z + 0.9, Math.PI - 0.3, g, people);
-    interactables.push({ label: 'Blackjack', x, z: z + 1.5, radius: 1.1, run: () => blackjackPanel(gameRef()) });
+    const seat = { x, z: z + 1.2, rotY: Math.PI };
+    g.add(cyl(0.2, 0.5, darkWood, seat.x, 0.25, seat.z, 16));
+    interactables.push({ label: 'Sentarse · Blackjack', x, z: z + 1.5, radius: 1.1, run: () => sitAndOpen(gameRef(), seat, (onClose) => blackjackPanel(gameRef(), onClose)) });
   });
   // póker
   [[-1.5, -1.4], [2.0, -1.4]].forEach(([x, z], i) => {
@@ -452,8 +454,9 @@ export function createCasino(gameRef: () => Game): Floor {
     croupier(x, z - 1.35, 0, g, people, i + 4);
     gambler(x - 1.1, z + 0.4, Math.PI + 0.5, g, people);
     gambler(x + 1.1, z + 0.4, Math.PI - 0.5, g, people);
-    gambler(x, z + 1.5, Math.PI, g, people);
-    interactables.push({ label: 'Mesa de póker', x, z: z + 1.6, radius: 1.2, run: () => pokerPanel(gameRef()) });
+    const seat = { x, z: z + 1.5, rotY: Math.PI };
+    g.add(cyl(0.2, 0.5, darkWood, seat.x, 0.25, seat.z, 16));
+    interactables.push({ label: 'Sentarse · Mesa de póker', x, z: z + 1.7, radius: 1.2, run: () => sitAndOpen(gameRef(), seat, (onClose) => pokerPanel(gameRef(), onClose)) });
   });
   // Crazy Time: stand con rueda gigante en el centro-sur (zona de show)
   const ct = crazyTimeStand();
@@ -474,7 +477,9 @@ export function createCasino(gameRef: () => Game): Floor {
   croupier(-6.0, 2.2, 0, g, people, 3);
   gambler(-6.7, 3.9, Math.PI + 0.3, g, people);
   gambler(-5.3, 3.9, Math.PI - 0.3, g, people);
-  interactables.push({ label: 'Speed Baccarat', x: -6.0, z: 4.3, radius: 1.2, run: () => baccaratPanel(gameRef()) });
+  const bacSeat = { x: -6.0, z: 4.15, rotY: Math.PI };
+  g.add(cyl(0.2, 0.5, darkWood, bacSeat.x, 0.25, bacSeat.z, 16));
+  interactables.push({ label: 'Sentarse · Speed Baccarat', x: -6.0, z: 4.4, radius: 1.2, run: () => sitAndOpen(gameRef(), bacSeat, (onClose) => baccaratPanel(gameRef(), onClose)) });
   const bacSign = signPlane('BACCARAT', 'punto y banca en directo', 1.6, 0.5);
   bacSign.position.set(-6.0, 3.4, 1.9);
   g.add(bacSign);
