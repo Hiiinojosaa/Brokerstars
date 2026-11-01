@@ -132,7 +132,7 @@ export function roulettePanel(game: Game) {
     const chipStack = (amount: number) => {
       const s = el('span', 'chip-stack');
       s.textContent = amount >= 1000 ? (amount / 1000) + 'k' : String(amount);
-      s.style.background = amount >= 5000 ? '#0f8a4a' : amount >= 1000 ? '#c8a14a' : amount >= 500 ? '#7d2ae8' : amount >= 100 ? '#111' : amount >= 25 ? '#1f5fae' : '#b3202a';
+      s.style.setProperty('--chip', amount >= 5000 ? '#0f8a4a' : amount >= 1000 ? '#c6a24c' : amount >= 500 ? '#7d2ae8' : amount >= 100 ? '#1a1a1a' : amount >= 25 ? '#1f5fae' : '#b3202a');
       return s;
     };
     const place = (label: string, numbers: number[], payout: number, cell: HTMLElement) => {
@@ -212,7 +212,7 @@ export function roulettePanel(game: Game) {
     const seg = (Math.PI * 2) / WHEEL.length;
     let wheelAngle = 0;
     drawWheel(0, -Math.PI / 2, 90);
-    const spinBtn = button('🎡 ¡Girar!', () => {
+    const spinBtn = button('GIRAR', () => {
       if (!bets.length) return hud.toast('Pon alguna ficha en el tapete', 'bad');
       if (spinning) return;
       spinning = true;
@@ -253,7 +253,7 @@ export function roulettePanel(game: Game) {
           if (won) win(game, won);
           if (litHit) { rain(litHit); game.state.addNews('casino', '⚡', `¡Lightning! El ${n} con ×${litHit} en la ruleta: ${chips(won)}.`); }
           history.unshift(n);
-          result.innerHTML = `Ha salido <b class="rn ${n === 0 ? 'g' : RED.has(n) ? 'r' : 'b'}">${n}</b>${litHit ? ` ⚡×${litHit}` : ''} ${won ? `· ¡GANAS ${chips(won)}! 🎉` : '· gana la banca'} <span class="muted">· ${history.slice(0, 10).join(' ')}</span>`;
+          result.innerHTML = `Ha salido <b class="rn ${n === 0 ? 'g' : RED.has(n) ? 'r' : 'b'}">${n}</b>${litHit ? ` ⚡×${litHit}` : ''} ${won ? `· ¡GANAS ${chips(won)}!` : '· gana la banca'} <span class="muted">· ${history.slice(0, 10).join(' ')}</span>`;
           genLightning();
           bets.length = 0;
           board.querySelectorAll('.chip-stack').forEach((e) => e.remove());
@@ -316,36 +316,32 @@ export function megaFireTerminalPanel(game: Game, onClose?: () => void) {
   };
 
   const bets: RouletteBet[] = [];
+  const cellByLabel = new Map<string, HTMLElement>();
+  let chipMult = 1; // fichas por toque (sumador)
   let lastBets: { label: string; numbers: number[]; payout: number; amount: number }[] = [];
   const history: number[] = [];
   let fire = new Set<number>();
   let phase: 'bet' | 'spin' | 'resolve' | 'mini' = 'bet';
   let jackpot = 40000 + Math.floor(Math.random() * 90000);
 
-  hud.openPanel('🔥 Ruleta MegaFire', (body) => {
-    const term = el('div', 'mf-term');
-    // ---- pantalla superior (la grande del terminal) ----
-    const screen = el('div', 'mf-screen');
+  hud.openPanel('Mega Fire Blaze · Ruleta', (body) => {
+    const term = el('div', 'mf-live');
+    body.closest('.panel')?.classList.add('casino-live');
+    // ---- elementos del escenario (arriba) ----
     const jackEl = el('div', 'mf-jackpot');
     const fireStrip = el('div', 'mf-fire');
     const phaseEl = el('div', 'mf-phase', 'Haz tus apuestas');
     const countBar = el('div', 'mf-countbar');
     const countFill = el('div', 'mf-countbar-fill');
     countBar.append(countFill);
-    screen.append(el('div', 'mf-title', '🔥 MEGAFIRE · Ruleta en directo'), jackEl, fireStrip, phaseEl, countBar);
-    const paintJack = () => { jackEl.innerHTML = `JACKPOT <b>${chips(jackpot)}</b>`; };
+    const paintJack = () => { jackEl.innerHTML = `<span>JACKPOT</span><b>${chips(jackpot)}</b>`; };
     paintJack();
-
-    // ---- rueda + bola ----
     const wheel = el('canvas', 'mf-wheel') as HTMLCanvasElement;
-    wheel.width = wheel.height = 240;
+    wheel.width = wheel.height = 480;
+    const reveal = el('div', 'mf-reveal');
     const bar = chipBar(game);
-    const result = el('div', 'muted', 'La ruleta gira sola. Pon fichas antes de que acabe la cuenta atrás.');
+    const result = el('div', 'mf-result', 'Haz tus apuestas antes de que acabe la cuenta atrás.');
     const histEl = el('div', 'mf-hist');
-    const mid = el('div', 'mf-mid');
-    const midRight = el('div', 'col');
-    midRight.append(bar, result, histEl);
-    mid.append(wheel, midRight);
 
     // ---- tapete de apuestas ----
     const sel = betSelector();
@@ -353,27 +349,29 @@ export function megaFireTerminalPanel(game: Game, onClose?: () => void) {
     const chipStack = (amount: number) => {
       const s = el('span', 'chip-stack');
       s.textContent = amount >= 1000 ? (amount / 1000) + 'k' : String(amount);
-      s.style.background = amount >= 5000 ? '#0f8a4a' : amount >= 1000 ? '#c8a14a' : amount >= 500 ? '#7d2ae8' : amount >= 100 ? '#111' : amount >= 25 ? '#1f5fae' : '#b3202a';
+      s.style.setProperty('--chip', amount >= 5000 ? '#0f8a4a' : amount >= 1000 ? '#c6a24c' : amount >= 500 ? '#7d2ae8' : amount >= 100 ? '#1a1a1a' : amount >= 25 ? '#1f5fae' : '#b3202a');
       return s;
     };
     const refreshBar = () => { bar.textContent = `🪙 ${chips(game.state.data.chips)}`; };
     const place = (label: string, numbers: number[], payout: number, cell: HTMLElement) => {
       if (phase !== 'bet') return hud.toast('Espera a la fase de apuestas', 'bad');
-      const v = sel.get();
+      const v = sel.get() * chipMult;
       if (!spend(game, v)) return;
       const existing = bets.find((b) => b.label === label);
       if (existing) existing.amount += v;
       else bets.push({ label, numbers, payout, amount: v });
+      cellByLabel.set(label, cell);
       cell.querySelector('.chip-stack')?.remove();
       cell.append(chipStack(bets.find((b) => b.label === label)!.amount));
       refreshBar();
     };
-    const cell = (text: string, cls: string, numbers: number[], payout: number) => {
+    const cell = (text: string, cls: string, numbers: number[], payout: number, label = text) => {
       const b = el('button', 'rcell ' + cls, text);
       if (numbers.length === 1) b.dataset.n = String(numbers[0]);
-      b.onclick = () => place(text, numbers, payout, b);
+      b.onclick = () => place(label, numbers, payout, b);
       return b;
     };
+    board.style.gridTemplateColumns = '38px repeat(12, 1fr) 42px';
     board.append(cell('0', 'green zero', [0], 35));
     for (let col = 0; col < 12; col++) {
       for (let row = 2; row >= 0; row--) {
@@ -384,6 +382,14 @@ export function megaFireTerminalPanel(game: Game, onClose?: () => void) {
         board.append(c);
       }
     }
+    // columnas 2:1 a la derecha (como en la mesa real)
+    const colBet = (m: number) => Array.from({ length: 36 }, (_, i) => i + 1).filter((x) => x % 3 === m);
+    [[0, 'col-alta'], [2, 'col-media'], [1, 'col-baja']].forEach(([m, lab], i) => {
+      const c = cell('2:1', 'out col2to1', colBet(m as number), 2, lab as string);
+      c.style.gridColumn = '14';
+      c.style.gridRow = String(i + 1);
+      board.append(c);
+    });
     const range = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
     const outside = el('div', 'roulette-out');
     outside.append(
@@ -393,64 +399,162 @@ export function megaFireTerminalPanel(game: Game, onClose?: () => void) {
       cell('IMPAR', 'out', range(1, 36).filter((x) => x % 2), 1), cell('19-36', 'out', range(19, 36), 1),
     );
     const clearChips = () => {
-      board.querySelectorAll('.chip-stack').forEach((e) => e.remove());
-      outside.querySelectorAll('.chip-stack').forEach((e) => e.remove());
+      term.querySelectorAll('.chip-stack').forEach((e) => e.remove());
     };
 
-    const controls = el('div', 'mf-controls');
-    const spinNow = button('🎡 Girar ya', () => { if (phase === 'bet' && bets.length) doSpin(); else if (!bets.length) hud.toast('Pon alguna ficha primero', 'bad'); });
-    const repeat = button('↻ Repetir apuesta', () => {
+    // ---- sectores de la rueda (racetrack) ----
+    const VOISINS = [22, 18, 29, 7, 28, 12, 35, 3, 26, 0, 32, 15, 19, 4, 21, 2, 25];
+    const TIER = [27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33];
+    const ORPHELINS = [1, 20, 14, 31, 9, 17, 34, 6];
+    const sector = (name: string, nums: number[]) => cell(name, 'mf-sector', nums, Math.max(1, Math.floor(36 / nums.length) - 1), 'sector-' + name);
+    // racetrack ovalado: números en el orden de la rueda + zonas en el centro
+    const track = el('div', 'mf-track');
+    const oval = el('div', 'mf-oval');
+    WHEEL.forEach((num, i) => {
+      const a = -Math.PI / 2 + i * (2 * Math.PI / WHEEL.length);
+      const nb = el('button', 'mf-rt-num ' + (num === 0 ? 'g' : RED.has(num) ? 'r' : 'b'), String(num));
+      nb.style.left = (50 + 45 * Math.cos(a)) + '%';
+      nb.style.top = (50 + 45 * Math.sin(a)) + '%';
+      nb.onclick = () => { const c = board.querySelector<HTMLElement>(`.rcell[data-n="${num}"]`); if (c) place(String(num), [num], 35, c); };
+      oval.append(nb);
+    });
+    const zones = el('div', 'mf-rt-zones');
+    zones.append(sector('Tier', TIER), sector('Orphelins', ORPHELINS), sector('Voisins', VOISINS));
+    oval.append(zones);
+    track.append(el('div', 'mf-track-title', 'RACETRACK · apuesta por zonas'), oval);
+
+    // ---- acciones (como en la mesa real: deshacer / doblar / girar) ----
+    const findCell = (b: { label: string }) => cellByLabel.get(b.label) ?? null;
+    const spinNow = button('GIRAR YA', () => { if (phase === 'bet' && bets.length) doSpin(); else if (!bets.length) hud.toast('Pon alguna ficha primero', 'bad'); });
+    const doble = button('×2 Doblar', () => {
+      if (phase !== 'bet' || !bets.length) return;
+      const snapshot = bets.map((b) => ({ ...b }));
+      for (const b of snapshot) {
+        const c = findCell(b);
+        if (!c) continue;
+        if (game.state.data.chips < b.amount) { hud.toast('No te llega para doblar todo', 'bad'); break; }
+        place(b.label, b.numbers, b.payout, c);
+      }
+    }, 'mf-act');
+    const undo = button('↩ Deshacer', () => {
+      if (phase !== 'bet' || !bets.length) return;
+      const last = bets[bets.length - 1];
+      win(game, last.amount);
+      bets.pop();
+      const c = findCell(last);
+      c?.querySelector('.chip-stack')?.remove();
+      refreshBar();
+    }, 'mf-act');
+    const repeat = button('↻ Repetir', () => {
       if (phase !== 'bet' || !lastBets.length) return;
       for (const b of lastBets) {
-        const c = b.numbers.length === 1
-          ? board.querySelector<HTMLElement>(`.rcell[data-n="${b.numbers[0]}"]`)
-          : [...outside.querySelectorAll<HTMLElement>('.rcell')].find((e) => e.textContent === b.label) ?? null;
+        const c = findCell(b);
         if (!c) continue;
         if (game.state.data.chips < b.amount) { hud.toast('No te llega para repetir todo', 'bad'); break; }
         place(b.label, b.numbers, b.payout, c);
       }
-    }, 'btn ghost');
-    const takeBack = button('Retirar fichas', () => {
-      if (phase !== 'bet') return;
-      for (const b of bets) win(game, b.amount);
-      bets.length = 0;
-      clearChips();
-      refreshBar();
-    }, 'btn ghost');
-    controls.append(sel.row, spinNow, repeat, takeBack);
+    }, 'mf-act');
 
-    term.append(screen, mid, controls, el('div', 'muted', 'Pon la ficha encima del número (la tapa) o en una zona:'), board, outside);
+    // ---- escenario (arriba): directo, números en fuego, rueda, cuenta atrás ----
+    const stage = el('div', 'mf-stage');
+    const liveBar = el('div', 'mf-livebar');
+    liveBar.append(el('span', 'mf-live-tag', '● EN DIRECTO'), el('div', 'mf-stage-title', 'MEGA FIRE BLAZE · RULETA'), jackEl);
+    const wheelWrap = el('div', 'mf-wheel-wrap');
+    wheelWrap.append(wheel, reveal);
+    stage.append(liveBar, fireStrip, wheelWrap, phaseEl, countBar, result);
+
+    // ---- logo del juego ----
+    const logo = el('div', 'mf-logo');
+    logo.innerHTML = '<span class="mf-logo-top">MEGA <b>FIRE BLAZE</b></span><span class="mf-logo-mid">ROULETTE</span><span class="mf-logo-bot">LIVE</span>';
+
+    // ---- cubierta de control (abajo) ----
+    const deck = el('div', 'mf-deck');
+    const left = el('div', 'mf-deck-left');
+    const actions = el('div', 'mf-actions');
+    actions.append(undo, doble, repeat, spinNow);
+    left.append(bar, track, actions);
+
+    const center = el('div', 'mf-deck-center');
+    center.append(board, outside);
+
+    const rightCol = el('div', 'mf-deck-right');
+    const tray = el('div', 'mf-tray');
+    const multRow = el('div', 'mf-mult');
+    const MULTS = [1, 3, 5, 10];
+    const multBtns = MULTS.map((m) => button('×' + m, () => { chipMult = m; multBtns.forEach((b, j) => b.classList.toggle('on', MULTS[j] === chipMult)); }, 'mf-mult-btn' + (m === 1 ? ' on' : '')));
+    multRow.append(...multBtns);
+    tray.append(el('div', 'mf-tray-label', 'VALOR DE LA FICHA'), sel.row, el('div', 'mf-tray-label', 'FICHAS POR TOQUE'), multRow);
+    rightCol.append(histEl, logo, tray);
+
+    deck.append(left, center, rightCol);
+    term.append(stage, deck);
     body.append(term);
 
     // ---- dibujo de la rueda ----
     const WHEEL_SEG = (Math.PI * 2) / WHEEL.length;
     let wheelAngle = 0;
+    // rueda 3D: elipse en perspectiva con profundidad, casillas y bola con sombra
     const drawWheel = (wa: number, ba: number, br: number) => {
       const ctx = wheel.getContext('2d')!;
-      const R = 116, c = 120;
-      ctx.clearRect(0, 0, 240, 240);
-      ctx.beginPath(); ctx.arc(c, c, R + 2, 0, Math.PI * 2); ctx.fillStyle = '#4a3418'; ctx.fill();
-      WHEEL.forEach((num, i) => {
-        ctx.beginPath(); ctx.moveTo(c, c);
-        ctx.arc(c, c, R, wa + i * WHEEL_SEG, wa + (i + 1) * WHEEL_SEG);
-        ctx.fillStyle = num === 0 ? '#0f8a4a' : RED.has(num) ? '#b3202a' : '#141414';
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, 480, 480);
+      ctx.setTransform(2, 0, 0, 2, 0, 0); // dibujamos en espacio lógico 240
+      const c = 120, ky = 0.46, Rx = 114, ro = Rx * 0.9, ri = Rx * 0.56;
+      const pt = (ang: number, r: number): [number, number] => [c + Math.cos(ang) * r, c + Math.sin(ang) * r * ky];
+      // sombra bajo la rueda
+      ctx.beginPath(); ctx.ellipse(c, c + 14, Rx * 1.05, Rx * ky * 1.05, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fill();
+      // pared lateral (profundidad)
+      ctx.beginPath(); ctx.ellipse(c, c + 11, Rx, Rx * ky, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#2a1d0c'; ctx.fill();
+      // borde dorado exterior
+      ctx.beginPath(); ctx.ellipse(c, c, Rx, Rx * ky, 0, 0, Math.PI * 2);
+      const rim = ctx.createLinearGradient(c - Rx, c - 20, c + Rx, c + 20);
+      rim.addColorStop(0, '#6e4e20'); rim.addColorStop(.5, '#f2d88e'); rim.addColorStop(1, '#6e4e20');
+      ctx.fillStyle = rim; ctx.fill();
+      // pista de la bola (anillo oscuro)
+      ctx.beginPath(); ctx.ellipse(c, c, ro, ro * ky, 0, 0, Math.PI * 2); ctx.fillStyle = '#17100a'; ctx.fill();
+      // casillas, dibujadas de atrás hacia delante para el efecto 3D
+      const order = WHEEL.map((num, i) => ({ num, i, mid: wa + (i + 0.5) * WHEEL_SEG }))
+        .sort((a, b) => Math.sin(a.mid) - Math.sin(b.mid));
+      for (const { num, i, mid } of order) {
+        const a0 = wa + i * WHEEL_SEG, a1 = wa + (i + 1) * WHEEL_SEG;
+        ctx.beginPath();
+        ctx.ellipse(c, c, ro, ro * ky, 0, a0, a1);
+        ctx.ellipse(c, c, ri, ri * ky, 0, a1, a0, true);
+        ctx.closePath();
+        ctx.fillStyle = num === 0 ? '#0f8a4a' : RED.has(num) ? '#c0202c' : '#1b1b1f';
         ctx.fill();
-        if (fire.has(num)) {
-          ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = '#ff7a1a'; ctx.fill(); ctx.restore();
-        }
-        ctx.save(); ctx.translate(c, c);
-        ctx.rotate(wa + (i + 0.5) * WHEEL_SEG + Math.PI / 2);
-        ctx.fillStyle = '#fff'; ctx.font = '700 11px sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText(String(num), 0, -R + 13);
+        const front = (Math.sin(mid) + 1) / 2; // 0 = atrás, 1 = delante
+        ctx.save(); ctx.globalAlpha = 0.42 * (1 - front); ctx.fillStyle = '#000'; ctx.fill(); ctx.restore();
+        if (fire.has(num)) { ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = '#ff7a1a'; ctx.fill(); ctx.restore(); }
+        ctx.strokeStyle = 'rgba(235,205,130,.45)'; ctx.lineWidth = 0.7; ctx.stroke();
+        const [nx, ny] = pt(mid, (ro + ri) / 2);
+        const sc = 0.6 + 0.6 * front;
+        ctx.save(); ctx.translate(nx, ny);
+        ctx.fillStyle = '#fff'; ctx.globalAlpha = 0.4 + 0.6 * front;
+        ctx.font = `800 ${(8.5 * sc).toFixed(1)}px Inter, sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(num), 0, 0);
         ctx.restore();
-      });
-      ctx.beginPath(); ctx.arc(c, c, R - 26, 0, Math.PI * 2); ctx.strokeStyle = '#2a1c0c'; ctx.lineWidth = 3; ctx.stroke();
-      ctx.beginPath(); ctx.arc(c, c, 54, 0, Math.PI * 2);
-      const g = ctx.createRadialGradient(c - 15, c - 15, 8, c, c, 54);
-      g.addColorStop(0, '#caa24a'); g.addColorStop(1, '#6b4a22');
-      ctx.fillStyle = g; ctx.fill();
-      ctx.beginPath(); ctx.arc(c + Math.cos(ba) * br, c + Math.sin(ba) * br, 6, 0, Math.PI * 2);
-      ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 4; ctx.fill(); ctx.shadowBlur = 0;
+      }
+      // torreta central
+      ctx.beginPath(); ctx.ellipse(c, c, ri, ri * ky, 0, 0, Math.PI * 2); ctx.fillStyle = '#120c06'; ctx.fill();
+      ctx.beginPath(); ctx.ellipse(c, c - 3, ri * 0.72, ri * 0.72 * ky, 0, 0, Math.PI * 2);
+      const hub = ctx.createRadialGradient(c - 10, c - 9, 3, c, c, ri * 0.72);
+      hub.addColorStop(0, '#f6de98'); hub.addColorStop(1, '#6e4c1e');
+      ctx.fillStyle = hub; ctx.fill();
+      ctx.beginPath(); ctx.ellipse(c, c - 7, ri * 0.2, ri * 0.2 * ky, 0, 0, Math.PI * 2); ctx.fillStyle = '#eccb78'; ctx.fill();
+      // la bola
+      const [bx, by] = pt(ba, br);
+      const bfront = (Math.sin(ba) + 1) / 2;
+      const brad = 3.4 + 1.8 * bfront;
+      ctx.beginPath(); ctx.ellipse(bx, by + 1.5, brad * 1.2, brad * 0.6, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fill();
+      const bg = ctx.createRadialGradient(bx - brad * 0.4, by - brad * 0.4, 0.5, bx, by, brad);
+      bg.addColorStop(0, '#ffffff'); bg.addColorStop(1, '#bfc4cc');
+      ctx.beginPath(); ctx.arc(bx, by, brad, 0, Math.PI * 2); ctx.fillStyle = bg; ctx.fill();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
     };
     drawWheel(0, -Math.PI / 2, 90);
 
@@ -467,7 +571,7 @@ export function megaFireTerminalPanel(game: Game, onClose?: () => void) {
       fire = new Set();
       const count = 2 + Math.floor(Math.random() * 4); // 2-5 números
       while (fire.size < count) fire.add(Math.floor(Math.random() * 37));
-      fireStrip.innerHTML = '<span class="mf-fire-tag">🔥 EN FUEGO</span>';
+      fireStrip.innerHTML = '<span class="mf-fire-tag">EN LLAMAS</span>';
       for (const num of [...fire].sort((a, b) => a - b)) {
         const c = el('span', 'mf-fire-num');
         c.innerHTML = `<b>${num}</b>`;
@@ -487,9 +591,10 @@ export function megaFireTerminalPanel(game: Game, onClose?: () => void) {
       phase = 'bet';
       bets.length = 0;
       clearChips();
+      term.querySelectorAll('.win').forEach((e) => e.classList.remove('win'));
       genFire();
       drawHistory();
-      result.textContent = 'Fase de apuestas: pon fichas (los números 🔥 disparan MegaFire si caen).';
+      result.textContent = 'Fase de apuestas: pon tus fichas. Los números en llamas disparan el bonus si caen.';
       betEnd = performance.now() + BET_MS;
       spinNow.disabled = false;
       tickCountdown();
@@ -503,30 +608,49 @@ export function megaFireTerminalPanel(game: Game, onClose?: () => void) {
       after(120, tickCountdown);
     };
 
+    const revealNumber = (n: number) => {
+      const color = n === 0 ? 'g' : RED.has(n) ? 'r' : 'b';
+      reveal.className = 'mf-reveal show ' + color + (fire.has(n) ? ' fire' : '');
+      reveal.innerHTML = `<span class="mf-reveal-tag">${fire.has(n) ? 'EN LLAMAS' : 'SALE EL'}</span><span class="mf-reveal-num">${n}</span>`;
+      wheel.classList.remove('spinning');
+      after(1500, () => { reveal.classList.remove('show'); resolve(n); });
+    };
+
     function doSpin() {
       if (phase !== 'bet') return;
       phase = 'spin';
       spinNow.disabled = true;
       lastBets = bets.map((b) => ({ ...b }));
-      phaseEl.textContent = 'NO VA MÁS · girando…';
+      phaseEl.textContent = 'NO VA MÁS · la bola rueda';
       countFill.style.width = '0%';
+      wheel.classList.add('spinning');
       const n = WHEEL[Math.floor(Math.random() * WHEEL.length)];
       const targetIndex = WHEEL.indexOf(n);
-      let wheelSpeed = 0.3, ballAngle = 0, ballSpeed = -0.6, ballR = 92;
-      const anim = () => {
+      // animación POR TIEMPO (independiente de los fps): ~5,2 s
+      const SPIN_MS = 5200;
+      const startWheel = wheelAngle;
+      const wheelTurns = 5 + Math.random() * 2;   // vueltas del cilindro
+      const ballTurns = 9 + Math.random() * 3;    // vueltas de la bola (sentido contrario)
+      const t0 = performance.now();
+      const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
+      const frame = () => {
         if (closed) return;
-        wheelAngle += wheelSpeed; wheelSpeed *= 0.991;
-        if (ballSpeed < -0.05 || ballR > 62) {
-          ballAngle += ballSpeed; ballSpeed *= 0.985;
-          if (Math.abs(ballSpeed) < 0.12) ballR = Math.max(62, ballR - 0.7);
+        const p = Math.min(1, (performance.now() - t0) / SPIN_MS);
+        const e = easeOut(p);
+        wheelAngle = startWheel + wheelTurns * 2 * Math.PI * e;
+        if (p < 1) {
+          const ballAngle = -ballTurns * 2 * Math.PI * e;
+          const drop = p < 0.62 ? 0 : (p - 0.62) / 0.38;   // la bola cae en el último tramo
+          const ballR = 100 - (100 - 82) * easeOut(drop);
           drawWheel(wheelAngle, ballAngle, ballR);
-          raf = requestAnimationFrame(anim);
+          raf = requestAnimationFrame(frame);
         } else {
-          drawWheel(wheelAngle, wheelAngle + (targetIndex + 0.5) * WHEEL_SEG, 62);
-          resolve(n);
+          // la bola queda asentada en la casilla ganadora
+          drawWheel(wheelAngle, wheelAngle + (targetIndex + 0.5) * WHEEL_SEG, 82);
+          after(500, () => revealNumber(n));
         }
       };
-      anim();
+      frame();
     }
 
     const resolve = (n: number) => {
@@ -536,24 +660,26 @@ export function megaFireTerminalPanel(game: Game, onClose?: () => void) {
       let normalWon = 0, fireBet = 0;
       for (const b of bets) {
         if (!b.numbers.includes(n)) continue;
+        cellByLabel.get(b.label)?.classList.add('win');
         if (b.numbers.length === 1 && fire.has(n)) fireBet += b.amount;
         else normalWon += b.amount * (b.payout + 1);
       }
+      board.querySelector(`.rcell[data-n="${n}"]`)?.classList.add('win');
       if (normalWon) win(game, normalWon);
       refreshBar();
       history.unshift(n);
       drawHistory();
       const color = n === 0 ? 'g' : RED.has(n) ? 'r' : 'b';
       if (fireBet > 0 && fire.has(n)) {
-        result.innerHTML = `🔥 ¡El <b class="rn ${color}">${n}</b> estaba EN FUEGO! Empieza MegaFire…`;
+        result.innerHTML = `El <b class="rn ${color}">${n}</b> estaba EN LLAMAS · empieza el bonus…`;
         after(800, () => runMegaFire(n, fireBet, (prize, total) => {
-          if (prize >= fireBet * 20) hud.toast(`🔥 MegaFire ×${total}: +${chips(prize)}`, 'ok');
-          result.innerHTML = `🔥 <b class="rn ${color}">${n}</b> · MegaFire ×${total} → <b>${chips(prize)}</b>${normalWon ? ` · apuestas +${chips(normalWon)}` : ''}`;
+          if (prize >= fireBet * 20) hud.toast(`Mega Fire ×${total}: +${chips(prize)}`, 'ok');
+          result.innerHTML = `<b class="rn ${color}">${n}</b> · bonus ×${total} → <b>${chips(prize)}</b>${normalWon ? ` · apuestas +${chips(normalWon)}` : ''}`;
           phase = 'resolve';
           after(1800, startRound);
         }));
       } else {
-        result.innerHTML = `Sale <b class="rn ${color}">${n}</b> ${normalWon ? `· ¡ganas ${chips(normalWon)}! 🎉` : '· gana la banca'}`;
+        result.innerHTML = `Sale el <b class="rn ${color}">${n}</b> ${normalWon ? `· ganas ${chips(normalWon)}` : '· gana la banca'}`;
         after(4200, startRound);
       }
     };
@@ -707,8 +833,13 @@ function deck(): Card[] {
 }
 const rankText = (r: number) => ({ 11: 'J', 12: 'Q', 13: 'K', 14: 'A' }[r] ?? String(r));
 function cardEl(c: Card | null) {
-  if (!c) return el('div', 'card back', '🂠');
-  const e = el('div', 'card' + (c.s === 1 || c.s === 2 ? ' redc' : ''), `${rankText(c.r)}${SUITS[c.s]}`);
+  if (!c) return el('div', 'card back');
+  const red = c.s === 1 || c.s === 2;
+  const e = el('div', 'card' + (red ? ' redc' : ''));
+  const r = rankText(c.r), s = SUITS[c.s];
+  const tl = el('span', 'card-idx'); tl.innerHTML = `${r}<b>${s}</b>`;
+  const br = el('span', 'card-idx br'); br.innerHTML = `${r}<b>${s}</b>`;
+  e.append(tl, el('span', 'card-pip', s), br);
   return e;
 }
 
@@ -736,8 +867,8 @@ export function blackjackPanel(game: Game, onClose?: () => void) {
     const bar = chipBar(game);
     const dealerRow = el('div', 'hand');
     const handsWrap = el('div', 'bj-hands');
-    const msg = el('div', 'muted', 'Blackjack paga 3:2. La banca se planta en 17. Puedes doblar, dividir y pedir seguro.');
-    const actions = el('div', 'row');
+    const msg = el('div', 'bj-msg', 'Elige tu apuesta y reparte.');
+    const actions = el('div', 'bj-actions');
 
     const draw = () => { if (d.length < 15) d = deck(); return d.pop()!; };
     const render = (reveal = false) => {
@@ -750,7 +881,7 @@ export function blackjackPanel(game: Game, onClose?: () => void) {
         const hd = el('div', 'bj-hand' + (playing && i === active ? ' on' : ''));
         const cards = el('div', 'hand');
         h.forEach((c) => cards.append(cardEl(c)));
-        hd.append(cards, el('div', 'muted', `${hands.length > 1 ? `Mano ${i + 1} · ` : ''}${bjValue(h)}${bjValue(h) > 21 ? ' 💥' : ''} · ${chips(bets[i])}`));
+        hd.append(cards, el('div', 'muted', `${hands.length > 1 ? `Mano ${i + 1} · ` : ''}${bjValue(h)}${bjValue(h) > 21 ? ' · pasado' : ''} · ${chips(bets[i])}`));
         handsWrap.append(hd);
       });
       actions.innerHTML = '';
@@ -769,7 +900,7 @@ export function blackjackPanel(game: Game, onClose?: () => void) {
       dealer = [draw(), draw()];
       active = 0; insurance = 0; playing = true;
       msg.textContent = `Apuesta ${chips(bet)}`;
-      if (bjValue(hands[0]) === 21) { playing = false; return finishAll('¡BLACKJACK! 🃏'); }
+      if (bjValue(hands[0]) === 21) { playing = false; return finishAll('¡BLACKJACK!'); }
       render();
     };
     const takeInsurance = () => {
@@ -812,7 +943,7 @@ export function blackjackPanel(game: Game, onClose?: () => void) {
       const results: string[] = [];
       // seguro: paga 2:1 si la banca tiene blackjack natural
       if (insurance) {
-        if (dealer.length === 2 && dv === 21) { totalWin += insurance * 3; results.push('seguro ✓'); }
+        if (dealer.length === 2 && dv === 21) { totalWin += insurance * 3; results.push('seguro pagado'); }
       }
       hands.forEach((h, i) => {
         const pv = bjValue(h);
@@ -827,7 +958,29 @@ export function blackjackPanel(game: Game, onClose?: () => void) {
       msg.textContent = `${special ?? ''} Banca ${dv} · ${results.join(' · ')}${totalWin ? ` · +${chips(totalWin)}` : ''}`;
       render(true);
     };
-    body.append(bar, el('div', 'section', 'Banca'), dealerRow, el('div', 'section', 'Tú'), handsWrap, msg, sel.row, actions);
+    body.closest('.panel')?.classList.add('casino-live');
+    const term = el('div', 'bj-live');
+    const stage = el('div', 'bj-stage');
+    const dealerArea = el('div', 'bj-area');
+    dealerArea.append(el('div', 'bj-seat-label', 'Crupier'), dealerRow);
+    const rules = el('div', 'bj-rules', 'El crupier se planta en 17 · Blackjack paga 3:2 · Seguro 2:1');
+    const spots = el('div', 'bj-spots');
+    spots.append(el('div', 'bj-spot'), el('div', 'bj-spot'), el('div', 'bj-spot'));
+    const playerArea = el('div', 'bj-area');
+    playerArea.append(handsWrap, el('div', 'bj-seat-label', 'Jugador'));
+    stage.append(dealerArea, rules, spots, playerArea, msg);
+
+    const bjDeck = el('div', 'bj-deck');
+    const dkLeft = el('div', 'bj-deck-left');
+    dkLeft.append(bar);
+    const dkCenter = el('div', 'bj-deck-center');
+    dkCenter.append(el('div', 'mf-tray-label', 'VALOR DE LA FICHA'), sel.row);
+    const dkRight = el('div', 'bj-deck-right');
+    dkRight.append(actions);
+    bjDeck.append(dkLeft, dkCenter, dkRight);
+
+    term.append(stage, bjDeck);
+    body.append(term);
     render();
   }, onClose);
 }
@@ -861,9 +1014,9 @@ export function crazyTimePanel(game: Game) {
     const bar = chipBar(game);
     const sel = betSelector([1, 5, 25, 100, 500]);
     const canvas = el('canvas', 'ct-wheel') as HTMLCanvasElement;
-    canvas.width = canvas.height = 260;
+    canvas.width = canvas.height = 520;
     const topslot = el('div', 'ct-topslot');
-    const result = el('div', 'muted', 'Apuesta a un número o a un bonus y gira la rueda');
+    const result = el('div', 'wheel-result', 'Apuesta a un número o a un bonus y gira la rueda');
     const grid = el('div', 'ct-grid');
     const cells: Record<string, HTMLElement> = {};
     const order = ['1', '2', '5', '10', 'coin', 'pachinko', 'cash', 'crazy'];
@@ -887,7 +1040,9 @@ export function crazyTimePanel(game: Game) {
     const draw = (angle: number) => {
       const ctx = canvas.getContext('2d')!;
       const R = 125, c = 130;
-      ctx.clearRect(0, 0, 260, 260);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, 520, 520);
+      ctx.setTransform(2, 0, 0, 2, 0, 0);
       ctx.beginPath(); ctx.arc(c, c, R + 3, 0, Math.PI * 2); ctx.fillStyle = '#2a1a06'; ctx.fill();
       CT_WHEEL.forEach((k, i) => {
         const t = CT_TYPES[k];
@@ -948,7 +1103,7 @@ export function crazyTimePanel(game: Game) {
     const paintTop = () => { topslot.innerHTML = `TOP SLOT · <b>${CT_TYPES[topType].label}</b> × <b>${topMult}</b>`; };
     paintTop();
 
-    const spinBtn = button('🎡 ¡Girar!', () => {
+    const spinBtn = button('GIRAR', () => {
       if (spinning) return;
       if (!Object.keys(bets).length) return hud.toast('Pon fichas en algún sitio', 'bad');
       spinning = true; spinBtn.disabled = true;
@@ -972,7 +1127,7 @@ export function crazyTimePanel(game: Game) {
           let topBoost = topType === winner ? topMult : 1;
           const won = stake * mult * topBoost;
           if (won) win(game, won);
-          result.innerHTML = `Sale <b>${CT_TYPES[winner].label}</b>${topBoost > 1 ? ` (TOP ×${topMult})` : ''} · ${won ? `¡GANAS ${chips(won)}! 🎉` : 'nada para ti'} <span class="muted">· ${history.slice(0, 12).map((h) => CT_TYPES[h].label[0]).join(' ')}</span>`;
+          result.innerHTML = `Sale <b>${CT_TYPES[winner].label}</b>${topBoost > 1 ? ` (TOP ×${topMult})` : ''} · ${won ? `¡GANAS ${chips(won)}!` : 'nada para ti'} <span class="muted">· ${history.slice(0, 12).map((h) => CT_TYPES[h].label[0]).join(' ')}</span>`;
           for (const k of order) { delete bets[k]; cells[k].querySelector('.ct-stake')!.textContent = ''; }
           bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
           spinning = false; spinBtn.disabled = false;
@@ -1001,7 +1156,17 @@ export function crazyTimePanel(game: Game) {
       requestAnimationFrame(anim);
     });
 
-    body.append(bar, topslot, canvas, el('div', 'muted', 'Valor de la ficha:'), sel.row, grid, spinBtn, result);
+    body.closest('.panel')?.classList.add('casino-live');
+    const wterm = el('div', 'wheel-live');
+    const wstage = el('div', 'wheel-stage');
+    wstage.append(topslot, canvas, result);
+    const wdeck = el('div', 'wheel-deck');
+    const wdL = el('div', 'wheel-deck-left'); wdL.append(bar);
+    const wdC = el('div', 'wheel-deck-center'); wdC.append(grid);
+    const wdR = el('div', 'wheel-deck-right'); wdR.append(el('div', 'mf-tray-label', 'VALOR DE LA FICHA'), sel.row, spinBtn);
+    wdeck.append(wdL, wdC, wdR);
+    wterm.append(wstage, wdeck);
+    body.append(wterm);
   });
 }
 
@@ -1061,12 +1226,42 @@ export function baccaratPanel(game: Game, onClose?: () => void) {
       else if (winner === 'empate' && bet !== 'empate') won = stake; // empate devuelve la apuesta en jugador/banca
       if (won) win(game, won);
       history.unshift(winner[0].toUpperCase());
-      msg.innerHTML = `Gana <b>${winner}</b> (${pv}-${bv}) · ${won ? `+${chips(won)} 🎉` : 'pierdes'} <span class="muted">· ${history.slice(0, 14).join(' ')}</span>`;
+      msg.innerHTML = `Gana <b class="bc-win-${winner}">${winner.toUpperCase()}</b> (${pv}-${bv}) · ${won ? `ganas ${chips(won)}` : 'pierdes'}`;
       bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
+      drawRoad();
     });
-    table.append(el('div', 'bc-side', 'Jugador'), pRow, el('div', 'bc-side banca', 'Banca'), bRow);
-    body.append(bar, table, msg, el('div', 'muted', 'Valor de la ficha:'), sel.row, picks, deal);
+
+    body.closest('.panel')?.classList.add('casino-live');
+    const road = el('div', 'bc-road');
+    const drawRoad = () => {
+      road.innerHTML = '';
+      for (const r of history.slice(0, 40)) {
+        road.append(el('div', 'bc-bead ' + (r === 'J' ? 'j' : r === 'B' ? 'b' : 'e'), r));
+      }
+    };
+    const term = el('div', 'bj-live');
+    const stage = el('div', 'bj-stage bc-stage');
+    const sides = el('div', 'bc-sides');
+    const pSide = el('div', 'bc-seat');
+    pSide.append(el('div', 'bc-side', 'Jugador'), pRow);
+    const bSide = el('div', 'bc-seat');
+    bSide.append(el('div', 'bc-side banca', 'Banca'), bRow);
+    sides.append(pSide, bSide);
+    stage.append(el('div', 'bj-rules', 'Jugador paga 1:1 · Banca 0,95:1 · Empate 8:1'), sides, msg, el('div', 'bc-road-label', 'Historial'), road);
+
+    const bjDeck = el('div', 'bj-deck');
+    const dkLeft = el('div', 'bj-deck-left');
+    dkLeft.append(bar);
+    const dkCenter = el('div', 'bj-deck-center');
+    dkCenter.append(el('div', 'mf-tray-label', 'VALOR DE LA FICHA'), sel.row);
+    const dkRight = el('div', 'bj-deck-right');
+    dkRight.append(picks, deal);
+    bjDeck.append(dkLeft, dkCenter, dkRight);
+
+    term.append(stage, bjDeck);
+    body.append(term);
     paint();
+    drawRoad();
   }, onClose);
 }
 
@@ -1180,7 +1375,7 @@ function slotMachine(game: Game, g: SlotGame) {
       return { prize: Math.floor(prize), winners };
     };
 
-    const spin = button('🎰 Tirar', async () => {
+    const spin = button('TIRAR', async () => {
       const bet = sel.get();
       const free = freeSpins > 0;
       if (free) freeSpins--;
@@ -1228,7 +1423,17 @@ function slotMachine(game: Game, g: SlotGame) {
       spin.disabled = false;
     });
     const spinFree = () => freeSpins > 0;
-    body.append(bar, grid, msg, sel.row, spin, button('‹ Otras máquinas', () => slotsMenu(game), 'btn ghost'));
+    body.closest('.panel')?.classList.add('casino-live');
+    const sterm = el('div', 'slot-live');
+    const sstage = el('div', 'slot-stage');
+    sstage.append(grid, msg);
+    const sdeck = el('div', 'slot-deck');
+    const sdL = el('div', 'slot-deck-left'); sdL.append(bar);
+    const sdC = el('div', 'slot-deck-center'); sdC.append(el('div', 'mf-tray-label', 'VALOR DE LA FICHA'), sel.row);
+    const sdR = el('div', 'slot-deck-right'); sdR.append(spin, button('‹ Otras máquinas', () => slotsMenu(game), 'btn ghost'));
+    sdeck.append(sdL, sdC, sdR);
+    sterm.append(sstage, sdeck);
+    body.append(sterm);
     void spinFree;
   });
 }
@@ -1271,7 +1476,7 @@ export function megaFireSlotsPanel(game: Game) {
   const COLS = 5, ROWS = 4, N = COLS * ROWS;
   let freeSpins = 0, fsMult = 1, busy = false;
 
-  hud.openPanel('🔥 Slots MegaFire', (body) => {
+  hud.openPanel('Slots MegaFire', (body) => {
     const bar = chipBar(game);
     const sel = betSelector([5, 25, 100, 500, 1000]);
     const grid = el('div', 'slot-grid mfs-grid');
@@ -1356,7 +1561,7 @@ export function megaFireSlotsPanel(game: Game) {
       setTimeout(() => cells.forEach((c) => c.classList.remove('slot-win', 'mfs-collecting')), 1200);
     };
 
-    const spin = button('🎰 Tirar', async () => {
+    const spin = button('TIRAR', async () => {
       if (busy) return;
       const free = freeSpins > 0;
       const stake = sel.get();
@@ -1372,7 +1577,17 @@ export function megaFireSlotsPanel(game: Game) {
     });
 
     refreshBar();
-    body.append(bar, grid, bonusWrap, msg, sel.row, spin, button('‹ Otras máquinas', () => slotsMenu(game), 'btn ghost'));
+    body.closest('.panel')?.classList.add('casino-live');
+    const sterm = el('div', 'slot-live');
+    const sstage = el('div', 'slot-stage');
+    sstage.append(grid, bonusWrap, msg);
+    const sdeck = el('div', 'slot-deck');
+    const sdL = el('div', 'slot-deck-left'); sdL.append(bar);
+    const sdC = el('div', 'slot-deck-center'); sdC.append(el('div', 'mf-tray-label', 'VALOR DE LA FICHA'), sel.row);
+    const sdR = el('div', 'slot-deck-right'); sdR.append(spin, button('‹ Otras máquinas', () => slotsMenu(game), 'btn ghost'));
+    sdeck.append(sdL, sdC, sdR);
+    sterm.append(sstage, sdeck);
+    body.append(sterm);
   }, () => { closed = true; timers.forEach((t) => clearTimeout(t)); timers.clear(); });
 }
 
@@ -1380,7 +1595,7 @@ export function megaFireSlotsPanel(game: Game) {
 export function minesPanel(game: Game) {
   const { hud } = game;
   const T = 25;
-  hud.openPanel('Gemas 💎', (body) => {
+  hud.openPanel('Gemas', (body) => {
     const bar = chipBar(game);
     const sel = betSelector([5, 25, 100, 500, 1000]);
     let bombsN = 5;
@@ -1452,7 +1667,7 @@ export function minesPanel(game: Game) {
       msg.textContent = `En juego · ${bombsN} bombas. Descubre gemas.`;
       paint();
     };
-    const startBtn = button('🎮 Jugar', newGame);
+    const startBtn = button('JUGAR', newGame);
 
     for (let i = 0; i < T; i++) {
       const c = el('button', 'mine-cell') as HTMLButtonElement;
@@ -1464,8 +1679,17 @@ export function minesPanel(game: Game) {
       for (const n of [3, 5, 10]) bombSel.append(button(`${n} bombas`, () => { if (!active) { bombsN = n; renderBombSel(); } }, 'btn small' + (bombsN === n ? ' on' : '')));
     };
     renderBombSel();
-    body.append(bar, el('div', 'muted', 'Valor de la ficha:'), sel.row, bombSel, grid, msg, el('div', 'row', ''));
-    (body.lastChild as HTMLElement).append(startBtn, cashBtn);
+    body.closest('.panel')?.classList.add('casino-live');
+    const mterm = el('div', 'slot-live');
+    const mstage = el('div', 'slot-stage');
+    mstage.append(grid, msg);
+    const mdeck = el('div', 'slot-deck');
+    const mdL = el('div', 'slot-deck-left'); mdL.append(bar);
+    const mdC = el('div', 'slot-deck-center'); mdC.append(el('div', 'mf-tray-label', 'VALOR DE LA FICHA'), sel.row, el('div', 'mf-tray-label', 'BOMBAS'), bombSel);
+    const mdR = el('div', 'slot-deck-right'); mdR.append(startBtn, cashBtn);
+    mdeck.append(mdL, mdC, mdR);
+    mterm.append(mstage, mdeck);
+    body.append(mterm);
     paint();
   });
 }
@@ -1483,9 +1707,9 @@ export function megaWheelPanel(game: Game) {
     const bar = chipBar(game);
     const sel = betSelector([1, 5, 25, 100, 500]);
     const canvas = el('canvas', 'ct-wheel') as HTMLCanvasElement;
-    canvas.width = canvas.height = 260;
+    canvas.width = canvas.height = 520;
     const topslot = el('div', 'ct-topslot');
-    const result = el('div', 'muted', 'Apuesta a un número y gira. El top slot multiplica un número al azar.');
+    const result = el('div', 'wheel-result', 'Apuesta a un número y gira. El top slot multiplica un número al azar.');
     const grid = el('div', 'mw-grid');
     const cells: Record<number, HTMLElement> = {};
     for (const v of MW_VALUES) {
@@ -1506,7 +1730,9 @@ export function megaWheelPanel(game: Game) {
     const draw = (angle: number) => {
       const ctx = canvas.getContext('2d')!;
       const R = 125, c = 130;
-      ctx.clearRect(0, 0, 260, 260);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, 520, 520);
+      ctx.setTransform(2, 0, 0, 2, 0, 0);
       ctx.beginPath(); ctx.arc(c, c, R + 3, 0, Math.PI * 2); ctx.fillStyle = '#2a1a06'; ctx.fill();
       MW_SEGMENTS.forEach((v, i) => {
         ctx.beginPath(); ctx.moveTo(c, c);
@@ -1528,7 +1754,7 @@ export function megaWheelPanel(game: Game) {
     let topMult = [2, 3, 5, 10][Math.floor(Math.random() * 4)];
     const paintTop = () => { topslot.innerHTML = `TOP SLOT · <b>×${topVal}</b> gana <b>×${topMult}</b>`; };
     paintTop();
-    const spinBtn = button('🎡 ¡Girar!', () => {
+    const spinBtn = button('GIRAR', () => {
       if (spinning) return;
       if (!Object.keys(bets).length) return hud.toast('Pon fichas en algún número', 'bad');
       spinning = true; spinBtn.disabled = true;
@@ -1548,7 +1774,7 @@ export function megaWheelPanel(game: Game) {
         const boost = topVal === winner ? topMult : 1;
         const won = stake * winner * boost;
         if (won) win(game, won);
-        result.innerHTML = `Sale <b>×${winner}</b>${boost > 1 ? ` (TOP ×${topMult})` : ''} · ${won ? `¡GANAS ${chips(won)}! 🎉` : 'nada'} <span class="muted">· ${history.slice(0, 12).map((h) => '×' + h).join(' ')}</span>`;
+        result.innerHTML = `Sale <b>×${winner}</b>${boost > 1 ? ` (TOP ×${topMult})` : ''} · ${won ? `¡GANAS ${chips(won)}!` : 'nada'} <span class="muted">· ${history.slice(0, 12).map((h) => '×' + h).join(' ')}</span>`;
         for (const v of MW_VALUES) { delete bets[v]; cells[v].querySelector('.ct-stake')!.textContent = ''; }
         bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
         spinning = false; spinBtn.disabled = false;
@@ -1558,20 +1784,40 @@ export function megaWheelPanel(game: Game) {
       };
       requestAnimationFrame(anim);
     });
-    body.append(bar, topslot, canvas, el('div', 'muted', 'Valor de la ficha:'), sel.row, grid, spinBtn, result);
+    body.closest('.panel')?.classList.add('casino-live');
+    const wterm = el('div', 'wheel-live');
+    const wstage = el('div', 'wheel-stage');
+    wstage.append(topslot, canvas, result);
+    const wdeck = el('div', 'wheel-deck');
+    const wdL = el('div', 'wheel-deck-left'); wdL.append(bar);
+    const wdC = el('div', 'wheel-deck-center'); wdC.append(grid);
+    const wdR = el('div', 'wheel-deck-right'); wdR.append(el('div', 'mf-tray-label', 'VALOR DE LA FICHA'), sel.row, spinBtn);
+    wdeck.append(wdL, wdC, wdR);
+    wterm.append(wstage, wdeck);
+    body.append(wterm);
   });
 }
 
 // --- póker Texas Hold'em contra dos jugadores del casino ---
 function handRank(cards: Card[]): number[] {
-  // mejor mano de 5 entre 7 cartas: devuelve [categoría, desempates…]
-  let best: number[] = [-1];
+  // mejor mano de 5 entre las cartas disponibles: devuelve [categoría, desempates…]
   const n = cards.length;
-  for (let a = 0; a < n; a++) for (let b = a + 1; b < n; b++) {
-    const five = cards.filter((_, i) => i !== a && i !== b);
-    const r = rank5(five);
-    if (compare(r, best) > 0) best = r;
+  if (n < 5) {
+    // antes del flop: valor aproximado (pareja + cartas altas) para los bots
+    const rs = cards.map((c) => c.r).sort((a, b) => b - a);
+    const pair = cards.length === 2 && cards[0].r === cards[1].r ? 1 : 0;
+    return [pair, ...rs];
   }
+  let best: number[] = [-1];
+  const pick = (start: number, acc: number[]): void => {
+    if (acc.length === 5) {
+      const r = rank5(acc.map((i) => cards[i]));
+      if (compare(r, best) > 0) best = r;
+      return;
+    }
+    for (let i = start; i < n; i++) pick(i + 1, [...acc, i]);
+  };
+  pick(0, []);
   return best;
 }
 function rank5(c: Card[]): number[] {
@@ -1606,17 +1852,19 @@ export function pokerPanel(game: Game, onClose?: () => void) {
     const bots = [{ name: 'Tony «el Tiburón»', chips: 3000 }, { name: 'Lucía «All-in»', chips: 3000 }];
     let d: Card[] = [], hole: Card[] = [], botHoles: Card[][] = [], board: Card[] = [], pot = 0, stage = -1, folded: boolean[] = [];
     const bar = chipBar(game);
-    const botsRow = el('div', 'row');
+    const botsRow = el('div', 'pk-opps');
     const boardRow = el('div', 'hand');
     const myRow = el('div', 'hand');
-    const msg = el('div', 'muted', 'Ciega de 50 fichas. Contra dos jugadores del casino. Con el multijugador, mesas con tus colegas.');
-    const actions = el('div', 'row');
+    const potEl = el('div', 'pk-pot');
+    const msg = el('div', 'bj-msg', 'Nueva mano para empezar. Ciega de 50 fichas, contra dos jugadores del casino.');
+    const actions = el('div', 'bj-actions');
     const strength = (cards: Card[]) => {
       const r = handRank(cards);
       return r[0] + (r[1] ?? 0) / 20;
     };
     const render = (showdown = false) => {
-      bar.textContent = `🪙 ${chips(game.state.data.chips)} · bote ${chips(pot)}`;
+      bar.textContent = `🪙 ${chips(game.state.data.chips)}`;
+      potEl.innerHTML = `<span>BOTE</span><b>${chips(pot)}</b>`;
       botsRow.innerHTML = '';
       bots.forEach((b, i) => {
         const box = el('div', 'bot');
@@ -1686,7 +1934,7 @@ export function pokerPanel(game: Game, onClose?: () => void) {
       while (board.length < 5) board.push(d.pop()!);
       if (allFolded) {
         win(game, pot);
-        msg.textContent = `Todos se retiran: te llevas ${chips(pot)} 💰`;
+        msg.textContent = `Todos se retiran: te llevas ${chips(pot)}`;
         pot = 0;
         return render(false);
       }
@@ -1700,7 +1948,24 @@ export function pokerPanel(game: Game, onClose?: () => void) {
       pot = 0;
       render(true);
     };
-    body.append(bar, botsRow, el('div', 'section', 'Mesa'), boardRow, el('div', 'section', 'Tus cartas'), myRow, msg, actions);
+    body.closest('.panel')?.classList.add('casino-live');
+    const term = el('div', 'bj-live');
+    const pkStage = el('div', 'bj-stage pk-stage');
+    const center = el('div', 'pk-center');
+    center.append(potEl, el('div', 'bj-seat-label', 'Mesa'), boardRow);
+    const me = el('div', 'bj-area');
+    me.append(myRow, el('div', 'bj-seat-label', 'Tus cartas'));
+    pkStage.append(botsRow, center, me, msg);
+
+    const bjDeck = el('div', 'bj-deck');
+    const dkLeft = el('div', 'bj-deck-left');
+    dkLeft.append(bar);
+    const dkRight = el('div', 'bj-deck-right');
+    dkRight.append(actions);
+    bjDeck.append(dkLeft, el('div', 'bj-deck-center'), dkRight);
+
+    term.append(pkStage, bjDeck);
+    body.append(term);
     render();
   }, onClose);
 }
